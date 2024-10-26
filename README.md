@@ -1,50 +1,80 @@
-# React + TypeScript + Vite
+# AI Code Assistant
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modern code editor with AI-powered code analysis and real-time quality metrics.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Editor
+- Monaco-based code editor with TypeScript support
+- Dark/Light theme switching
+- File tree navigation with modification tracking
+- Search functionality (Ctrl+F)
+- Auto-save and file state persistence
 
-## Expanding the ESLint configuration
+### AI Analysis
+- Real-time code quality metrics:
+  - Readability score
+  - Complexity assessment
+  - Performance evaluation
+- Smart code suggestions
+- Line-specific improvement recommendations
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### UI/UX
+- Clean, modern interface with Tailwind CSS
+- Collapsible sidebar and AI assistant panels
+- File modification indicators
+- Keyboard shortcuts support
+- Responsive layout design
 
-- Configure the top-level `parserOptions` property like this:
+## Getting Started
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Tech Stack
+- React 18
+- TypeScript
+- Monaco Editor
+- Tailwind CSS
+- Jest + Testing Library
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+## Development
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+### Project Structure
 ```
+src/
+├── components/
+│   ├── AIAssistant/
+│   ├── Editor/
+│   ├── Layout/
+│   ├── Sidebar/
+│   └── Toolbar/
+├── services/
+│   ├── codeAnalysis.ts
+│   └── fileSystem.ts
+└── types/
+```
+
+### TODO
+- [ ] Implement Grog API integration for code analysis
+- [ ] Add file creation/editing functionality
+- [ ] Add code formatting on save
+- [ ] Complete test coverage
+- [ ] Implement project import/export
+
+## Contributing
+Feel free to submit issues and pull requests.
+
+## License
+MIT
