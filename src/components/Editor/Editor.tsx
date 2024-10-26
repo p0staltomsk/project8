@@ -244,6 +244,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     if (value !== undefined) {
       setCode(value)
       onChange?.(value)
+      // Убираем автоматический анализ при каждом изменении
     }
   }
 
@@ -254,25 +255,24 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     try {
       const notification = document.createElement('div');
       notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Analyzing code...';
+      notification.textContent = 'Saving...';
       document.body.appendChild(notification);
 
-      // Получаем новый анализ от API только при сохранении
-      const newAnalysis = await analyzeCode(code, currentFile.id);
-      setAnalysis(newAnalysis);
-      lastAnalyzedFileId.current = currentFile.id;
-
-      // Сохраняем файл
+      // Сначала сохраняем файл
       onSave?.(code);
 
+      // Затем запускаем анализ
+      const newAnalysis = await analyzeCode(code, currentFile.id);
+      setAnalysis(newAnalysis);
+
       notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'File saved and analyzed!';
+      notification.textContent = 'File saved!';
       setTimeout(() => notification.remove(), 2000);
     } catch (error) {
-      console.error('Save and analysis error:', error);
+      console.error('Save error:', error);
       const notification = document.createElement('div');
       notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Error during analysis';
+      notification.textContent = 'Error saving file';
       document.body.appendChild(notification);
       setTimeout(() => notification.remove(), 2000);
     }

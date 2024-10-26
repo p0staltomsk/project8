@@ -61,6 +61,7 @@ function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | n
 }
 
 async function analyzeCode(code: string, fileId: string = 'default'): Promise<CodeAnalysisResult> {
+    // Проверяем кеш первым делом
     const cachedAnalysis = getCachedAnalysis(fileId, code);
     if (cachedAnalysis) {
         return cachedAnalysis;
@@ -92,27 +93,44 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
             throw new Error('Empty response from GROQ API');
         }
 
-        // Улучшенная обработка ответа
-        let analysisData: any;
+        // Улучшенная обработка JSON
         try {
-            // Ищем первый JSON объект в ответе
-            const jsonRegex = /\{[\s\S]*?\}(?=\n|$)/;
-            const match = content.match(jsonRegex);
-            
-            if (!match) {
+            // Используем более надежный способ извлечения JSON
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
                 throw new Error('No JSON found in response');
             }
 
-            const jsonContent = match[0];
-            console.log('Extracted JSON:', jsonContent); // Для отладки
+            const jsonString = jsonMatch[0].trim();
+            // Проверяем, что JSON заканчивается правильно
+            if (!jsonString.endsWith('}')) {
+                throw new Error('Invalid JSON structure');
+            }
+
+            const analysisData = JSON.parse(jsonString);
             
-            analysisData = JSON.parse(jsonContent);
+            // Валидируем и нормализуем ответ
+            const validatedAnalysis: CodeAnalysisResult = {
+                metrics: {
+                    readability: normalizeMetric(analysisData.metrics?.readability),
+                    complexity: normalizeMetric(analysisData.metrics?.complexity),
+                    performance: normalizeMetric(analysisData.metrics?.performance)
+                },
+                suggestions: (analysisData.suggestions || []).map((suggestion: any) => ({
+                    line: Number(suggestion.line) || 1,
+                    message: String(suggestion.message || 'Unknown issue'),
+                    severity: validateSeverity(suggestion.severity)
+                }))
+            };
+
+            // Сохраняем в кеш только валидные результаты
+            cacheAnalysis(fileId, code, validatedAnalysis);
             
+            return validatedAnalysis;
+
         } catch (parseError) {
             console.error('JSON Parse Error:', parseError);
-            console.log('Raw content:', content);
-            
-            // Возвращаем дефолтные значения в случае ошибки парсинга
+            // В случае ошибки парсинга возвращаем дефолтные значения
             return {
                 metrics: {
                     readability: 70,
@@ -121,39 +139,13 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
                 },
                 suggestions: [{
                     line: 1,
-                    message: 'Could not analyze code. Please try again.',
-                    severity: 'info'
+                    message: 'Could not parse analysis results. Please try again.',
+                    severity: 'warning'
                 }]
             };
         }
-        
-        // Валидируем и нормализуем ответ
-        const validatedAnalysis: CodeAnalysisResult = {
-            metrics: {
-                readability: normalizeMetric(analysisData.metrics?.readability),
-                complexity: normalizeMetric(analysisData.metrics?.complexity),
-                performance: normalizeMetric(analysisData.metrics?.performance)
-            },
-            suggestions: (analysisData.suggestions || []).map((suggestion: any) => ({
-                line: suggestion.line || 1,
-                message: suggestion.message || 'Unknown issue',
-                severity: validateSeverity(suggestion.severity)
-            }))
-        };
-
-        cacheAnalysis(fileId, code, validatedAnalysis);
-        
-        return validatedAnalysis;
     } catch (error) {
         console.error('GROQ API Error:', error);
-        
-        // Возвращаем кешированный результат в случае ошибки API
-        const lastCache = getCachedAnalysis(fileId, code);
-        if (lastCache) {
-            return lastCache;
-        }
-        
-        // Если нет кеша, возвращаем дефолтные значения
         return {
             metrics: {
                 readability: 70,
@@ -170,3 +162,4 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
 }
 
 export { analyzeCode, getCachedAnalysis };
+
