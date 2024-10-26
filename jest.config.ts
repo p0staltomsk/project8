@@ -1,4 +1,8 @@
-export default {
+/// <reference types="jest" />
+
+import type { Config } from 'jest';
+
+const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/jest.setup.ts'],
@@ -10,5 +14,14 @@ export default {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.json'
     }]
-  }
-}
+  },
+  testMatch: [
+    '<rootDir>/src/**/*.test.{ts,tsx}'
+  ],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts'
+  ]
+};
+
+export default config;

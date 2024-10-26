@@ -1,11 +1,13 @@
 import { fileSystem } from '@/services/fileSystem'
 
 /**
- * @deprecated This file has TypeScript errors and needs refactoring
- * TODO: 
- * 1. Remove Next.js specific code
- * 2. Update types for request/response
- * 3. Move to proper API structure
+ * @deprecated This file needs refactoring:
+ * - Remove Next.js dependencies
+ * - Move API logic to services
+ * - Use Vite-compatible approach
+ * 
+ * Current implementation is kept for reference only.
+ * See src/services/codeAnalysis.ts for the active implementation.
  */
 
 export interface CodeAnalysis {
@@ -36,17 +38,27 @@ export async function analyzeCode(code: string): Promise<CodeAnalysis> {
   }
 }
 
-export async function handleAnalyzeCode(code: string): Promise<Response> {
+// Заглушка для будущей интеграции с Grog API
+export async function handleAnalyzeCode(code: string): Promise<CodeAnalysis> {
   try {
-    const analysis = await analyzeCode(code)
-    return new Response(JSON.stringify(analysis), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    // TODO: В будущем здесь будет интеграция с Grog API
+    const lines = code.split('\n').length
+    const hasTypes = code.includes(': ') || code.includes('interface ')
+    const hasComments = code.includes('//')
+
+    return {
+      metrics: {
+        readability: hasComments ? 85 : 60,
+        complexity: lines > 50 ? 40 : 90,
+        performance: Math.floor(Math.random() * 20) + 80
+      },
+      suggestions: [
+        { line: 1, message: hasTypes ? 'Good use of types!' : 'Consider adding type annotations.' },
+        { line: Math.min(lines, 2), message: hasComments ? 'Good documentation!' : 'Add comments to explain the logic.' }
+      ]
+    }
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to analyze code' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    console.error('Analysis failed:', error)
+    throw error
   }
 }

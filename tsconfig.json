@@ -19,8 +19,17 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["jest"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src", "src/types"],
+  "include": [
+    "src",
+    "src/types",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "node_modules/@testing-library/jest-dom"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -1,6 +1,17 @@
 import '@testing-library/jest-dom'
 import 'jest-environment-jsdom'
 
+// Расширяем глобальные типы для тестов
+declare global {
+  namespace jest {
+    interface Matchers<R> {
+      toBeInTheDocument(): R;
+      toHaveClass(className: string): R;
+      toHaveStyle(style: { [key: string]: any }): R;
+    }
+  }
+}
+
 /**
  * TODO: Покрыть тестами следующие компоненты и функционал:
  * 
