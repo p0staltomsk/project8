@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { BaseProps } from '@/types'
 import Editor, { Monaco, OnMount } from '@monaco-editor/react'
 import { useCodeAnalysis } from './useCodeAnalysis'
 import axios from 'axios'
-import type { editor, IRange, Position } from 'monaco-editor'
+import type { editor, IRange } from 'monaco-editor'
 import { refactorCode } from '../../services/aiRefactor'
 import { analyzeCode, getCachedAnalysis } from '../../services/codeAnalysis'
+import type { CodeAnalysisResult, CodeSuggestion } from '@/types/codeAnalysis'
+import * as monaco from 'monaco-editor'
 
 /**
  * TODO: 
@@ -16,7 +18,7 @@ import { analyzeCode, getCachedAnalysis } from '../../services/codeAnalysis'
  * 
  * 2. Улучшить обработку сохранения:
  *    - Добавить индикатор несохраненных изменений
- *    - Предупреждать при закрытии с несохраненными изменениями
+ *    - Предупреждать при закрыт с несохраненными изменениями
  *    - Добавить автосохранение (опционально)
  * 
  * 3. Интегрироват с Grog API:
@@ -188,46 +190,53 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     if (!editorRef.current) return;
 
     try {
-        // Добавляем оверлей затемнения
-        const overlay = document.createElement('div');
-        overlay.className = 'fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50';
-        overlay.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center gap-3">
-                <svg class="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span class="text-gray-700 dark:text-gray-200">AI is analyzing your code...</span>
-            </div>
-        `;
-        document.body.appendChild(overlay);
+      const overlay = document.createElement('div');
+      overlay.className = 'fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50';
+      overlay.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center gap-3">
+          <svg class="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-gray-700 dark:text-gray-200">AI is analyzing your code...</span>
+        </div>
+      `;
+      document.body.appendChild(overlay);
 
-        const response = await refactorCode({
-            code,
-            context: 'Improve code quality and readability'
-        });
+      const response = await refactorCode({
+        code,
+        context: 'Improve code quality and readability'
+      });
 
-        // Показываем результаты анализа
-        const notification = document.createElement('div');
-        notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-3 rounded shadow-lg z-50';
-        notification.innerHTML = `
-            <div class="flex items-center gap-2">
-                <span>✨ Analysis complete! Found ${response.suggestions.length} suggestions.</span>
-            </div>
-        `;
-        document.body.appendChild(notification);
+      // Применяем изменения к выделенному тексту
+      if (editorRef.current && range) {
+        editorRef.current.executeEdits('ai-refactor', [{
+          range: range,
+          text: response.result
+        }]);
+      }
 
-        // Удаляем оверлей и уведомление через некоторое время
-        overlay.remove();
-        setTimeout(() => notification.remove(), 3000);
+      // Показываем результаты анализа
+      const notification = document.createElement('div');
+      notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-3 rounded shadow-lg z-50';
+      notification.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span>✨ Refactoring complete! Found ${response.suggestions.length} suggestions.</span>
+        </div>
+      `;
+      document.body.appendChild(notification);
+
+      // Удаляем оверлей и уведомление через некоторое время
+      overlay.remove();
+      setTimeout(() => notification.remove(), 3000);
 
     } catch (error) {
-        console.error('AI Refactor Error:', error);
-        const notification = document.createElement('div');
-        notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-        notification.textContent = 'Failed to analyze code';
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 3000);
+      console.error('AI Refactor Error:', error);
+      const notification = document.createElement('div');
+      notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      notification.textContent = 'Failed to refactor code';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
     }
   };
 

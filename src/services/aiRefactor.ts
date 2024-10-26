@@ -51,20 +51,3 @@ export async function refactorCode(request: RefactorRequest): Promise<RefactorRe
         ]
     };
 }
-
-function mockRefactor(code: string): string {
-    // Простые правила рефакторинга для демо
-    return code
-        // Добавляем типы к параметрам функций
-        .replace(/function\s+(\w+)\s*\(([\w\s,]*)\)/g, 'function $1($2: any)')
-        // Добавляем async к функциям с await
-        .replace(/function\s+(\w+)([^{]*{[^}]*await)/g, 'async function $1$2')
-        // Добавляем return types
-        .replace(/async function\s+(\w+)/g, 'async function $1: Promise<any>')
-        // Добавляем базовые комментарии
-        .replace(/function\s+(\w+)/g, '/** \n * @description TODO: Add description\n */\nfunction $1')
-        // Форматируем отступы
-        .split('\n')
-        .map(line => line.trim())
-        .join('\n    ');
-}

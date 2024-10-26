@@ -1,24 +1,66 @@
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 import { 
     GROQ_API_KEY, 
     CODE_ANALYSIS_SYSTEM_PROMPT, 
     GROQ_CONFIG,
     getHeaders 
 } from '../config/groq'
-import type { CodeAnalysisResult, CodeSuggestion } from '../types/codeAnalysis'
+import type { CodeAnalysisResult } from '../types/codeAnalysis'
 
 const CACHE_KEY_PREFIX = 'code_analysis_';
 
-interface FileAnalysisCache {
+interface AnalysisCache {
     fileId: string;
+    content: string;
     analysis: CodeAnalysisResult;
     timestamp: number;
-    hash: string;
 }
 
-// Экспортируем нужные функции
-export async function analyzeCode(code: string, fileId: string): Promise<CodeAnalysisResult> {
-    // Проверяем кеш
+function normalizeMetric(value: any): number {
+    const num = Number(value)
+    if (isNaN(num)) return 70
+    return Math.min(Math.max(Math.round(num), 0), 100)
+}
+
+function validateSeverity(severity: any): 'info' | 'warning' | 'error' {
+    const validSeverities = ['info', 'warning', 'error'] as const
+    return validSeverities.includes(severity) ? severity : 'info'
+}
+
+function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResult): void {
+    try {
+        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        const cacheData: AnalysisCache = {
+            fileId,
+            content: code,
+            analysis,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+        console.error('Cache write error:', error);
+    }
+}
+
+function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | null {
+    try {
+        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return null;
+
+        const parsedCache: AnalysisCache = JSON.parse(cached);
+        
+        if (parsedCache.content !== code) {
+            return null;
+        }
+
+        return parsedCache.analysis;
+    } catch {
+        return null;
+    }
+}
+
+async function analyzeCode(code: string, fileId: string = 'default'): Promise<CodeAnalysisResult> {
     const cachedAnalysis = getCachedAnalysis(fileId, code);
     if (cachedAnalysis) {
         return cachedAnalysis;
@@ -50,134 +92,81 @@ export async function analyzeCode(code: string, fileId: string): Promise<CodeAna
             throw new Error('Empty response from GROQ API');
         }
 
-        const cleanContent = content
-            .replace(/```json/g, '')
-            .replace(/```/g, '')
-            .trim();
-        
-        const analysis = JSON.parse(cleanContent);
+        // Улучшенная обработка ответа
+        let analysisData: any;
+        try {
+            // Ищем первый JSON объект в ответе
+            const jsonRegex = /\{[\s\S]*?\}(?=\n|$)/;
+            const match = content.match(jsonRegex);
+            
+            if (!match) {
+                throw new Error('No JSON found in response');
+            }
+
+            const jsonContent = match[0];
+            console.log('Extracted JSON:', jsonContent); // Для отладки
+            
+            analysisData = JSON.parse(jsonContent);
+            
+        } catch (parseError) {
+            console.error('JSON Parse Error:', parseError);
+            console.log('Raw content:', content);
+            
+            // Возвращаем дефолтные значения в случае ошибки парсинга
+            return {
+                metrics: {
+                    readability: 70,
+                    complexity: 70,
+                    performance: 70
+                },
+                suggestions: [{
+                    line: 1,
+                    message: 'Could not analyze code. Please try again.',
+                    severity: 'info'
+                }]
+            };
+        }
         
         // Валидируем и нормализуем ответ
         const validatedAnalysis: CodeAnalysisResult = {
             metrics: {
-                readability: normalizeMetric(analysis.metrics?.readability),
-                complexity: normalizeMetric(analysis.metrics?.complexity),
-                performance: normalizeMetric(analysis.metrics?.performance)
+                readability: normalizeMetric(analysisData.metrics?.readability),
+                complexity: normalizeMetric(analysisData.metrics?.complexity),
+                performance: normalizeMetric(analysisData.metrics?.performance)
             },
-            suggestions: (analysis.suggestions || []).map((suggestion: any) => ({
+            suggestions: (analysisData.suggestions || []).map((suggestion: any) => ({
                 line: suggestion.line || 1,
                 message: suggestion.message || 'Unknown issue',
                 severity: validateSeverity(suggestion.severity)
             }))
         };
 
-        // Сохраняем в кеш
         cacheAnalysis(fileId, code, validatedAnalysis);
         
         return validatedAnalysis;
     } catch (error) {
         console.error('GROQ API Error:', error);
         
-        // В случае ошибки возвращаем последний кешированный результат
-        const lastCached = getLastCachedAnalysis(fileId);
-        if (lastCached) {
-            return lastCached.analysis;
+        // Возвращаем кешированный результат в случае ошибки API
+        const lastCache = getCachedAnalysis(fileId, code);
+        if (lastCache) {
+            return lastCache;
         }
         
-        throw error;
-    }
-}
-
-export function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | null {
-    try {
-        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (!cached) return null;
-
-        const parsedCache: FileAnalysisCache = JSON.parse(cached);
-        
-        // Проверяем актуальность по хешу кода
-        if (hashCode(code) !== parsedCache.hash) {
-            return null;
-        }
-
-        return parsedCache.analysis;
-    } catch {
-        return null;
-    }
-}
-
-// Также экспортируем вспомогательные функции, которые могут понадобиться
-export function getLastCachedAnalysis(fileId: string): FileAnalysisCache | null {
-    try {
-        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (!cached) return null;
-        return JSON.parse(cached);
-    } catch {
-        return null;
-    }
-}
-
-export function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResult): void {
-    try {
-        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
-        const cacheData: FileAnalysisCache = {
-            fileId,
-            analysis,
-            timestamp: Date.now(),
-            hash: hashCode(code)
+        // Если нет кеша, возвращаем дефолтные значения
+        return {
+            metrics: {
+                readability: 70,
+                complexity: 70,
+                performance: 70
+            },
+            suggestions: [{
+                line: 1,
+                message: 'Failed to analyze code. Please try again.',
+                severity: 'error'
+            }]
         };
-        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    } catch (error) {
-        console.error('Cache write error:', error);
     }
 }
 
-function hashCode(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash = hash & hash;
-    }
-    return hash.toString(36);
-}
-
-function normalizeMetric(value: any): number {
-    const num = Number(value)
-    if (isNaN(num)) return 70
-    return Math.min(Math.max(Math.round(num), 0), 100)
-}
-
-function validateSeverity(severity: any): 'info' | 'warning' | 'error' {
-    const validSeverities = ['info', 'warning', 'error']
-    return validSeverities.includes(severity) ? severity : 'info'
-}
-
-/**
- * TODO: Интеграция с Grog API:
- * 
- * 1. Системный промт для анализа:
- *    - Определение метрик качества кода
- *    - Поиск потенциальных проблем
- *    - Предложения по улучшению
- * 
- * 2. Формат запроса:
- *    - Минимизация кода перед отправкой
- *    - Удалене комментариев и форматирования
- *    - Сохранение контекста для анализа
- * 
- * 3. Структура ответа:
- *    {
- *      metrics: {
- *        readability: number,
- *        complexity: number,
- *        performance: number
- *      },
- *      suggestions: Array<{
- *        line: number,
- *        message: string,
- *        severity: 'info' | 'warning' | 'error'
- *      }>
- *    }
- */
+export { analyzeCode, getCachedAnalysis };

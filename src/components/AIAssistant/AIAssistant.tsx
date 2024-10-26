@@ -1,4 +1,3 @@
-import React from 'react'
 import { BaseProps } from '@/types'
 import { X } from 'lucide-react'
 import MetricBar from './MetricBar'

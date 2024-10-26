@@ -8,5 +8,6 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './src')
         }
-    }
+    },
+    envPrefix: 'VITE_' // Префикс для переменных окружения
 });

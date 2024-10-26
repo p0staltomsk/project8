@@ -7,11 +7,15 @@ export interface CodeMetrics {
 export interface CodeSuggestion {
     line: number
     message: string
-    severity: 'info' | 'warning' | 'error'
+    severity: 'error' | 'warning' | 'info'
 }
 
 export interface CodeAnalysisResult {
-    metrics: CodeMetrics
+    metrics: {
+        readability: number
+        complexity: number
+        performance: number
+    }
     suggestions: CodeSuggestion[]
 }
 

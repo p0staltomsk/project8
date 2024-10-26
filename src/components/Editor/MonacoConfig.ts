@@ -39,13 +39,12 @@ export const editorOptions: editor.IStandaloneEditorConstructionOptions = {
     scrollbar: {
         verticalScrollbarSize: 10,
         horizontalScrollbarSize: 10,
-        // Цвета скроллбара
-        verticalSliderBackground: '#2A2A3C',
-        horizontalSliderBackground: '#2A2A3C',
-        verticalSliderHoverBackground: '#363654',
-        horizontalSliderHoverBackground: '#363654'
+        useShadows: true,
+        verticalHasArrows: false,
+        horizontalHasArrows: false,
+        vertical: 'visible',
+        horizontal: 'visible'
     },
-    // Дополнительные настройки для комфортного чтения
     lineHeight: 1.5,
     letterSpacing: 0.5,
     renderWhitespace: 'none',

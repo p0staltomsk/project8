@@ -1,7 +1,7 @@
 import React from 'react'
 import { BaseProps } from '@/types'
 import { Folder, FileText, ChevronRight, ChevronDown } from 'lucide-react'
-import { fileSystem } from '@/services/fileSystem'
+// import { fileSystem } from '@/services/fileSystem'
 
 interface SidebarProps extends BaseProps {
     isOpen: boolean;
@@ -200,7 +200,7 @@ interface OpenFolders {
 }
 
 export default function Sidebar({ isOpen, onFileSelect, currentFile, modifiedFiles = new Set() }: SidebarProps) {
-    const [fileTree, setFileTree] = React.useState(DEMO_FILES)
+    const fileTree = DEMO_FILES;
     const [openFolders, setOpenFolders] = React.useState<OpenFolders>(() => {
         const saved = localStorage.getItem('openFolders')
         return saved ? JSON.parse(saved) : {}
@@ -279,16 +279,3 @@ export default function Sidebar({ isOpen, onFileSelect, currentFile, modifiedFil
         </div>
     )
 }
-
-/**
- * TODO: 
- * 1. Добавить функционал создания файлов:
- *    - Контекстное меню для создания файла/папки
- *    - Диалог создания с выбором имени и типа файла
- *    - Шаблоны для разных типов файлов (.tsx, .ts, etc.)
- * 
- * 2. Добавить редактирование файловой структуры:
- *    - Переименование файлов/папок
- *    - Перемещение (drag-n-drop)
- *    - Удаление с подтверждением
- */
