@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { BaseProps } from '@/types'
 import Sidebar from '@/components/Sidebar/Sidebar'
 import AIAssistant from '@/components/AIAssistant/AIAssistant'
@@ -7,6 +7,7 @@ import CodeEditor from '@/components/Editor/Editor'
 import SettingsPanel from '@/components/Settings/SettingsPanel'
 import { ChevronLeft } from 'lucide-react'
 import { analyzeCode, getCachedAnalysis } from '@/services/codeAnalysis'
+import type { CodeAnalysisResult } from '@/types/codeAnalysis'  // Добавляем импорт типа
 
 interface MainLayoutProps extends BaseProps {
     isSidebarOpen: boolean
@@ -37,7 +38,6 @@ export default function MainLayout({
         if (savedFile) {
             return JSON.parse(savedFile)
         }
-        // Возвращаем example.js по умолчанию
         return {
             id: '3',
             name: 'example.js',
@@ -50,48 +50,47 @@ export default function MainLayout({
     
     const toggleSettings = () => setIsSettingsOpen(!isSettingsOpen)
 
-    // Инициализируем метрики из кеша или дефолтные
-    const [codeMetrics, setCodeMetrics] = React.useState(() => {
-        const savedMetrics = localStorage.getItem(`metrics_${currentFile?.id}`)
-        return savedMetrics ? JSON.parse(savedMetrics) : {
-            readability: 75,
-            complexity: 70,
-            performance: 80
-        }
-    })
-
-    // Инициализируем suggestions из кеша или дефолтные
-    const [codeSuggestions, setCodeSuggestions] = React.useState(() => {
-        const savedSuggestions = localStorage.getItem(`suggestions_${currentFile?.id}`)
-        return savedSuggestions ? JSON.parse(savedSuggestions) : [
-            { line: 1, message: 'Consider adding JSDoc documentation', severity: 'info' }
-        ]
-    })
-
     const [modifiedFiles, setModifiedFiles] = React.useState<Set<string>>(new Set())
 
-    // Анализируем код при первой загрузке
+    // Используем единое состояние для анализа
+    const [currentAnalysis, setCurrentAnalysis] = useState<CodeAnalysisResult>(() => {
+        const savedAnalysis = localStorage.getItem(`analysis_${currentFile?.id}`);
+        return savedAnalysis ? JSON.parse(savedAnalysis) : {
+            metrics: {
+                readability: 70,
+                complexity: 70,
+                performance: 70
+            },
+            suggestions: []
+        };
+    });
+
+    // Обработчик изменения анализа
+    const handleAnalysisChange = (analysis: CodeAnalysisResult) => {
+        console.log('Analysis updated:', analysis);
+        setCurrentAnalysis(analysis);
+        
+        // Сохраняем в localStorage
+        if (currentFile) {
+            localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(analysis));
+        }
+    };
+
+    // Эффект для инициализации анализа при смене файла
     React.useEffect(() => {
         async function initializeAnalysis() {
             if (!currentFile) return;
 
             try {
-                // Проверяем кеш анализа
                 const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
                 if (cachedAnalysis) {
-                    setCodeMetrics(cachedAnalysis.metrics);
-                    setCodeSuggestions(cachedAnalysis.suggestions);
+                    setCurrentAnalysis(cachedAnalysis);
                     return;
                 }
 
-                // Если нет в кеше, делаем новый анализ
                 const analysis = await analyzeCode(currentFile.content, currentFile.id);
-                setCodeMetrics(analysis.metrics);
-                setCodeSuggestions(analysis.suggestions);
-
-                // Сохраняем результаты в localStorage
-                localStorage.setItem(`metrics_${currentFile.id}`, JSON.stringify(analysis.metrics));
-                localStorage.setItem(`suggestions_${currentFile.id}`, JSON.stringify(analysis.suggestions));
+                setCurrentAnalysis(analysis);
+                localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(analysis));
             } catch (error) {
                 console.error('Failed to initialize analysis:', error);
             }
@@ -100,44 +99,27 @@ export default function MainLayout({
         initializeAnalysis();
     }, [currentFile?.id]);
 
-    const handleFileSelect = React.useCallback(async (file: { id: string; name: string; content: string }) => {
+    const handleFileSelect = React.useCallback(async (file: CurrentFile) => {
         setCurrentFile(file);
         localStorage.setItem('currentFile', JSON.stringify(file));
-        
-        try {
-            const analysis = await analyzeCode(file.content, file.id);
-            setCodeMetrics(analysis.metrics);
-            setCodeSuggestions(analysis.suggestions);
-            
-            // Сохраняем результаты в localStorage
-            localStorage.setItem(`metrics_${file.id}`, JSON.stringify(analysis.metrics));
-            localStorage.setItem(`suggestions_${file.id}`, JSON.stringify(analysis.suggestions));
-        } catch (error) {
-            console.error('Failed to analyze selected file:', error);
-        }
     }, []);
 
     const handleEditorChange = React.useCallback((code: string) => {
         if (currentFile && code !== currentFile.content) {
             setModifiedFiles(prev => new Set(prev).add(currentFile.id))
         }
-    }, [currentFile])
+    }, [currentFile]);
 
     const handleSave = React.useCallback(async (code: string) => {
-        if (currentFile) {
-            setCurrentFile({ ...currentFile, content: code })
-            setModifiedFiles(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(currentFile.id)
-                return newSet
-            })
-
-            // Анализируем код при сохранении
-            const analysis = await analyzeCode(code)
-            setCodeMetrics(analysis.metrics)
-            setCodeSuggestions(analysis.suggestions)
-        }
-    }, [currentFile])
+        if (!currentFile) return;
+        
+        setCurrentFile(prev => prev ? { ...prev, content: code } : null);
+        setModifiedFiles(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(currentFile.id);
+            return newSet;
+        });
+    }, [currentFile]);
 
     return (
         <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 ${isDarkMode ? 'dark' : ''} overflow-hidden`}>
@@ -162,6 +144,7 @@ export default function MainLayout({
                     onSave={handleSave}
                     onChange={handleEditorChange}
                     currentFile={currentFile}
+                    onAnalysisChange={handleAnalysisChange}
                 />
             </div>
 
@@ -169,8 +152,8 @@ export default function MainLayout({
                 <AIAssistant 
                     isOpen={isAssistantOpen} 
                     toggleAssistant={toggleAssistant}
-                    metrics={codeMetrics}
-                    suggestions={codeSuggestions}
+                    metrics={currentAnalysis.metrics}
+                    suggestions={currentAnalysis.suggestions}
                 />
             </div>
 

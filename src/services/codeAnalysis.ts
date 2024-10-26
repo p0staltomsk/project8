@@ -93,53 +93,46 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
             throw new Error('Empty response from GROQ API');
         }
 
-        // Улучшенная обработка JSON
         try {
-            // Используем более надежный способ извлечения JSON
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                throw new Error('No JSON found in response');
+            // Улучшенное извлечение JSON
+            const jsonRegex = /\{[\s\S]*?\}(?=\s*$)/;
+            const match = content.match(jsonRegex);
+            
+            if (!match) {
+                throw new Error('No valid JSON found in response');
             }
 
-            const jsonString = jsonMatch[0].trim();
-            // Проверяем, что JSON заканчивается правильно
-            if (!jsonString.endsWith('}')) {
-                throw new Error('Invalid JSON structure');
-            }
-
+            const jsonString = match[0].trim();
             const analysisData = JSON.parse(jsonString);
             
-            // Валидируем и нормализуем ответ
+            // Строгая валидация данных
             const validatedAnalysis: CodeAnalysisResult = {
                 metrics: {
                     readability: normalizeMetric(analysisData.metrics?.readability),
                     complexity: normalizeMetric(analysisData.metrics?.complexity),
                     performance: normalizeMetric(analysisData.metrics?.performance)
                 },
-                suggestions: (analysisData.suggestions || []).map((suggestion: any) => ({
-                    line: Number(suggestion.line) || 1,
-                    message: String(suggestion.message || 'Unknown issue'),
-                    severity: validateSeverity(suggestion.severity)
-                }))
+                suggestions: Array.isArray(analysisData.suggestions) 
+                    ? analysisData.suggestions.map((suggestion: any) => ({
+                        line: Math.max(1, Number(suggestion.line) || 1),
+                        message: String(suggestion.message || '').trim() || 'Unknown issue',
+                        severity: validateSeverity(suggestion.severity)
+                    }))
+                    : []
             };
 
-            // Сохраняем в кеш только валидные результаты
             cacheAnalysis(fileId, code, validatedAnalysis);
-            
             return validatedAnalysis;
 
         } catch (parseError) {
             console.error('JSON Parse Error:', parseError);
-            // В случае ошибки парсинга возвращаем дефолтные значения
+            console.log('Raw content:', content);
+            
             return {
-                metrics: {
-                    readability: 70,
-                    complexity: 70,
-                    performance: 70
-                },
+                metrics: { readability: 70, complexity: 70, performance: 70 },
                 suggestions: [{
                     line: 1,
-                    message: 'Could not parse analysis results. Please try again.',
+                    message: 'Could not parse analysis results',
                     severity: 'warning'
                 }]
             };
@@ -147,14 +140,10 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
     } catch (error) {
         console.error('GROQ API Error:', error);
         return {
-            metrics: {
-                readability: 70,
-                complexity: 70,
-                performance: 70
-            },
+            metrics: { readability: 70, complexity: 70, performance: 70 },
             suggestions: [{
                 line: 1,
-                message: 'Failed to analyze code. Please try again.',
+                message: 'Failed to analyze code',
                 severity: 'error'
             }]
         };
@@ -162,4 +151,3 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
 }
 
 export { analyzeCode, getCachedAnalysis };
-

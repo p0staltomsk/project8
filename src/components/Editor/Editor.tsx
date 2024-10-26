@@ -32,14 +32,25 @@ interface EditorProps extends BaseProps {
   onSave?: (code: string) => void
   onChange?: (code: string) => void
   currentFile: { id: string; name: string; content: string } | null
+  onAnalysisChange?: (analysis: CodeAnalysisResult) => void  // Добавляем новый проп
 }
 
-export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }: EditorProps) {
+export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, onAnalysisChange }: EditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
-  const [analysis, setAnalysis] = useState<CodeAnalysisResult | null>(null)
+  const [analysis, setAnalysis] = useState<CodeAnalysisResult>({
+    metrics: {
+        readability: 70,
+        complexity: 70,
+        performance: 70
+    },
+    suggestions: []
+  })
   const lastAnalyzedFileId = useRef<string | null>(null)
+
+  // Доб��вим новое состояние для кеширования TypeScript маркеров
+  const [typescriptMarkers, setTypescriptMarkers] = useState<CodeSuggestion[]>([]);
 
   // Загружаем анализ ТОЛЬКО при первом открытии файла
   useEffect(() => {
@@ -52,12 +63,23 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     }
   }, [currentFile?.id]); // Зависимость только от ID файла
 
-  // Обновляем только контент редактора при смене файла
+  // Обновляем эффект для смены файла
   useEffect(() => {
     if (currentFile) {
-      setCode(currentFile.content);
+        setCode(currentFile.content);
+        // Сбрасываем TypeScript маркеры при смене файла
+        setTypescriptMarkers([]);
+        // Сбрасываем анализ
+        setAnalysis({
+            metrics: {
+                readability: 70,
+                complexity: 70,
+                performance: 70
+            },
+            suggestions: []
+        });
     }
-  }, [currentFile]);
+  }, [currentFile?.id]); // Зависимость от ID файла
 
   const handleAIFix = async (suggestion: CodeSuggestion, lineContent: string) => {
     if (!editorRef.current) return;
@@ -114,11 +136,66 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     onFixRequest: handleAIFix
   })
 
+  // Обновим функцию isRelevantMarker, чтобы захватывать все ошибки TypeScript
+  const isRelevantMarker = (marker: editor.IMarker) => {
+    // Захватываем все маркеры с severity Error или Warning
+    return marker.severity === monaco.MarkerSeverity.Error || 
+           marker.severity === monaco.MarkerSeverity.Warning ||
+           marker.severity === monaco.MarkerSeverity.Info;
+  };
+
+  // Обновим функцию getMarkerTypePrefix для более точной категоризации ошибок
+  const getMarkerTypePrefix = (code: string | undefined): string => {
+    const prefixes: Record<string, string> = {
+        '7027': '[Unreachable Code]',
+        '2365': '[Type Mismatch]',
+        '2322': '[Type Error]',
+        '2339': '[Missing Property]',
+        '2304': '[Missing Module]',
+        '1005': '[Missing Declaration]',
+        '2691': '[Import Error]',
+        '1128': '[Declaration Error]',
+        '1005': '[Syntax Error]',
+        // Добавляем все встреченные коды ошибок
+    };
+    
+    // Определяем тип ошибки по коду или возвращаем общий префикс
+    return code ? (prefixes[code] || '[TypeScript]') : '[TypeScript]';
+  };
+
+  // Обновим функцию markerToSuggestion для лучшей обработки сообщений
+  const markerToSuggestion = (marker: editor.IMarker): CodeSuggestion => {
+    // Очищаем сообщение от технических деталей
+    let cleanMessage = marker.message
+        .replace(/\(ts\(\d+\)\)/, '') // Удаляем код ошибки в скобках
+        .trim();
+
+    // Добавляем префикс в зависимости от типа ошибки
+    const prefix = getMarkerTypePrefix(String(marker.code));
+    
+    return {
+        line: marker.startLineNumber,
+        message: `${prefix} ${cleanMessage}`,
+        severity: markerSeverityToSuggestionSeverity(marker.severity)
+    };
+  };
+
+  const markerSeverityToSuggestionSeverity = (severity: number): 'error' | 'warning' | 'info' => {
+    switch (severity) {
+        case monaco.MarkerSeverity.Error:
+            return 'error';
+        case monaco.MarkerSeverity.Warning:
+            return 'warning';
+        default:
+            return 'info';
+    }
+  };
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
 
-    // Добавляем AI действия в контекстное меню
+    // Добавляем AI дйстия в контекстное меню
     editor.addAction({
       id: 'ai-refactor',
       label: '🤖 Refactor with AI',
@@ -165,7 +242,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
         const selection = editor.getSelection()
         const searchText = selection ? editor.getModel()?.getValueInRange(selection) : ''
         
-        // Показываем виджет поиска и фокусируемся на нём
+        // Показываем виджет поика и фокусируемся на нём
         if (findController.start) {
           findController.start({
             searchString: searchText || '',
@@ -184,6 +261,70 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
         }, 50)
       }
     })
+
+    // В функции handleEditorDidMount добавим обработчик диагностики:
+    // Добавляем слушатель диагностических сообщений
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+        diagnosticCodesToIgnore: [] // Можно добавить коды, которые нужно игнорировать
+    });
+
+    // Обновляем обработчик маркеров
+    monaco.editor.onDidChangeMarkers((uris) => {
+        const model = editor.getModel();
+        if (!model) return;
+
+        // Проверяем, что маркеры относятся к текущему файлу
+        if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
+
+        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+        
+        // Получаем новые маркеры только для текущего файла
+        const newMarkerSuggestions = markers
+            .filter(isRelevantMarker)
+            .map(markerToSuggestion);
+        
+        // Обновляем кеш маркеров для текущего файла
+        setTypescriptMarkers(newMarkerSuggestions);
+
+        // Сохраняем существующие AI suggestions
+        const aiSuggestions = analysis.suggestions.filter(s => 
+            !s.message.includes('[TypeScript]') &&
+            !s.message.includes('[Type Error]') &&
+            !s.message.includes('[Type Mismatch]') &&
+            !s.message.includes('[Missing Module]') &&
+            !s.message.includes('[Syntax Error]') &&
+            !s.message.includes('[Declaration Error]')
+        );
+
+        // Объединяем списки
+        const combinedSuggestions = [
+            ...newMarkerSuggestions,
+            ...aiSuggestions
+        ].sort((a, b) => {
+            if (a.line !== b.line) return a.line - b.line;
+            const severityOrder = { error: 0, warning: 1, info: 2 };
+            return severityOrder[a.severity] - severityOrder[b.severity];
+        });
+
+        // Обновляем состояние
+        setAnalysis(prev => ({
+            ...prev,
+            suggestions: combinedSuggestions
+        }));
+        onAnalysisChange?.({
+            ...analysis,
+            suggestions: combinedSuggestions
+        });
+
+        // Отладочный вывод
+        console.group('Markers Update for file:', currentFile?.name);
+        console.log('New TypeScript markers:', newMarkerSuggestions);
+        console.log('Current AI suggestions:', aiSuggestions);
+        console.log('Combined result:', combinedSuggestions);
+        console.groupEnd();
+    });
   }
 
   const handleAIRefactor = async (code: string, range: IRange) => {
@@ -253,28 +394,78 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile }
     if (!currentFile) return;
 
     try {
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Saving...';
-      document.body.appendChild(notification);
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
+        notification.textContent = 'Analyzing code...';
+        document.body.appendChild(notification);
 
-      // Сначала сохраняем файл
-      onSave?.(code);
+        try {
+            // Получаем новый анализ от API
+            const newAnalysis = await analyzeCode(code, currentFile.id);
 
-      // Затем запускаем анализ
-      const newAnalysis = await analyzeCode(code, currentFile.id);
-      setAnalysis(newAnalysis);
+            // Используем кешированные TypeScript маркеры
+            const combinedSuggestions = [
+                ...typescriptMarkers, // Используем кешированные маркеры
+                ...newAnalysis.suggestions.filter(suggestion => 
+                    !typescriptMarkers.some(marker => 
+                        marker.line === suggestion.line && 
+                        suggestion.message.includes(marker.message.replace(/\[.*?\]\s/, ''))
+                    )
+                )
+            ].sort((a, b) => {
+                if (a.line !== b.line) return a.line - b.line;
+                const severityOrder = { error: 0, warning: 1, info: 2 };
+                return severityOrder[a.severity] - severityOrder[b.severity];
+            });
 
-      notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'File saved!';
-      setTimeout(() => notification.remove(), 2000);
+            // Обновляем состояние
+            const updatedAnalysis = {
+                ...newAnalysis,
+                suggestions: combinedSuggestions
+            };
+
+            setAnalysis(updatedAnalysis);
+            onAnalysisChange?.(updatedAnalysis);
+
+            // Сохраняем файл
+            onSave?.(code);
+
+            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            notification.textContent = 'File saved and analyzed!';
+            setTimeout(() => notification.remove(), 2000);
+
+            console.group('Save Analysis Update:');
+            console.log('TypeScript markers (cached):', typescriptMarkers);
+            console.log('AI suggestions:', newAnalysis.suggestions);
+            console.log('Combined suggestions:', combinedSuggestions);
+            console.groupEnd();
+
+        } catch (analysisError) {
+            console.error('Analysis failed, using TypeScript markers only:', analysisError);
+            
+            // В случае ошибки анализа используем только TypeScript маркеры
+            const fallbackAnalysis = {
+                metrics: {
+                    readability: 70,
+                    complexity: 70,
+                    performance: 70
+                },
+                suggestions: typescriptMarkers
+            };
+
+            setAnalysis(fallbackAnalysis);
+            onAnalysisChange?.(fallbackAnalysis);
+            
+            onSave?.(code);
+        }
+
     } catch (error) {
-      console.error('Save error:', error);
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Error saving file';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 2000);
+        console.error('Save error:', error);
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+        notification.textContent = 'Error saving file';
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 2000);
     }
   };
 
