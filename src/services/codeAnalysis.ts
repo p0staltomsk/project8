@@ -1,120 +1,157 @@
-interface CodeAnalysisResult {
-    metrics: {
-        readability: number;
-        complexity: number;
-        performance: number;
-    };
-    suggestions: Array<{
-        line: number;
-        message: string;
-    }>;
+import axios, { AxiosError } from 'axios'
+import { 
+    GROQ_API_KEY, 
+    CODE_ANALYSIS_SYSTEM_PROMPT, 
+    GROQ_CONFIG,
+    getHeaders 
+} from '../config/groq'
+import type { CodeAnalysisResult, CodeSuggestion } from '../types/codeAnalysis'
+
+const CACHE_KEY_PREFIX = 'code_analysis_';
+
+interface FileAnalysisCache {
+    fileId: string;
+    analysis: CodeAnalysisResult;
+    timestamp: number;
+    hash: string;
 }
 
-export async function analyzeCode(code: string): Promise<CodeAnalysisResult> {
-    // TODO: В будущем здесь будет интеграция с Grog API
-    return getMockAnalysis(code);
-}
-
-function getMockAnalysis(code: string): CodeAnalysisResult {
-    // Анализируем код локально для демо
-    const lines = code.split('\n').length;
-    const hasTypes = code.includes(': ') || code.includes('interface ') || code.includes('type ');
-    const hasComments = code.includes('//') || code.includes('/*');
-    const hasTryCatch = code.includes('try') && code.includes('catch');
-    const hasAsync = code.includes('async') || code.includes('await');
-    const hasTests = code.includes('test(') || code.includes('describe(');
-    const hasConsole = code.includes('console.log');
-
-    // Вычисляем метрики на основе анализа
-    const readability = calculateReadability(hasComments, hasTypes, lines);
-    const complexity = calculateComplexity(lines, hasTryCatch, hasAsync);
-    const performance = calculatePerformance(hasTryCatch, hasConsole);
-
-    return {
-        metrics: {
-            readability,
-            complexity,
-            performance
-        },
-        suggestions: generateSuggestions(code, {
-            hasTypes,
-            hasComments,
-            hasTryCatch,
-            hasTests,
-            hasConsole
-        })
-    };
-}
-
-function calculateReadability(hasComments: boolean, hasTypes: boolean, lines: number): number {
-    let score = 70;
-    if (hasComments) score += 15;
-    if (hasTypes) score += 10;
-    if (lines > 100) score -= 10;
-    return Math.min(Math.max(score, 0), 100);
-}
-
-function calculateComplexity(lines: number, hasTryCatch: boolean, hasAsync: boolean): number {
-    let score = 80;
-    if (lines > 50) score -= 10;
-    if (hasTryCatch) score -= 5;
-    if (hasAsync) score -= 5;
-    return Math.min(Math.max(score, 0), 100);
-}
-
-function calculatePerformance(hasTryCatch: boolean, hasConsole: boolean): number {
-    let score = 90;
-    if (hasConsole) score -= 10;
-    if (hasTryCatch) score -= 5;
-    return Math.min(Math.max(score, 0), 100);
-}
-
-function generateSuggestions(code: string, flags: {
-    hasTypes: boolean;
-    hasComments: boolean;
-    hasTryCatch: boolean;
-    hasTests: boolean;
-    hasConsole: boolean;
-}): Array<{ line: number; message: string }> {
-    const suggestions = [];
-    const lines = code.split('\n');
-
-    if (!flags.hasTypes) {
-        suggestions.push({
-            line: 1,
-            message: 'Consider adding TypeScript type annotations for better type safety'
-        });
+// Экспортируем нужные функции
+export async function analyzeCode(code: string, fileId: string): Promise<CodeAnalysisResult> {
+    // Проверяем кеш
+    const cachedAnalysis = getCachedAnalysis(fileId, code);
+    if (cachedAnalysis) {
+        return cachedAnalysis;
     }
 
-    if (!flags.hasComments) {
-        suggestions.push({
-            line: 1,
-            message: 'Add comments to explain complex logic and function purposes'
-        });
+    if (!GROQ_API_KEY || !GROQ_CONFIG) {
+        throw new Error('GROQ configuration is missing');
     }
 
-    if (!flags.hasTryCatch && code.includes('fetch')) {
-        suggestions.push({
-            line: lines.findIndex(l => l.includes('fetch')) + 1,
-            message: 'Add error handling for the fetch request'
-        });
-    }
+    try {
+        const response = await axios.post(
+            GROQ_CONFIG.apiUrl,
+            {
+                model: GROQ_CONFIG.model,
+                messages: [
+                    { role: 'system', content: CODE_ANALYSIS_SYSTEM_PROMPT },
+                    { role: 'user', content: `Analyze this code:\n\n${code}` }
+                ],
+                temperature: GROQ_CONFIG.temperature,
+                max_tokens: GROQ_CONFIG.maxTokens,
+            },
+            {
+                headers: getHeaders(),
+            }
+        );
 
-    if (flags.hasConsole) {
-        suggestions.push({
-            line: lines.findIndex(l => l.includes('console.log')) + 1,
-            message: 'Remove console.log statements before production'
-        });
-    }
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+            throw new Error('Empty response from GROQ API');
+        }
 
-    if (!flags.hasTests && code.includes('function')) {
-        suggestions.push({
-            line: lines.findIndex(l => l.includes('function')) + 1,
-            message: 'Consider adding unit tests for this function'
-        });
-    }
+        const cleanContent = content
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+        
+        const analysis = JSON.parse(cleanContent);
+        
+        // Валидируем и нормализуем ответ
+        const validatedAnalysis: CodeAnalysisResult = {
+            metrics: {
+                readability: normalizeMetric(analysis.metrics?.readability),
+                complexity: normalizeMetric(analysis.metrics?.complexity),
+                performance: normalizeMetric(analysis.metrics?.performance)
+            },
+            suggestions: (analysis.suggestions || []).map((suggestion: any) => ({
+                line: suggestion.line || 1,
+                message: suggestion.message || 'Unknown issue',
+                severity: validateSeverity(suggestion.severity)
+            }))
+        };
 
-    return suggestions;
+        // Сохраняем в кеш
+        cacheAnalysis(fileId, code, validatedAnalysis);
+        
+        return validatedAnalysis;
+    } catch (error) {
+        console.error('GROQ API Error:', error);
+        
+        // В случае ошибки возвращаем последний кешированный результат
+        const lastCached = getLastCachedAnalysis(fileId);
+        if (lastCached) {
+            return lastCached.analysis;
+        }
+        
+        throw error;
+    }
+}
+
+export function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | null {
+    try {
+        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return null;
+
+        const parsedCache: FileAnalysisCache = JSON.parse(cached);
+        
+        // Проверяем актуальность по хешу кода
+        if (hashCode(code) !== parsedCache.hash) {
+            return null;
+        }
+
+        return parsedCache.analysis;
+    } catch {
+        return null;
+    }
+}
+
+// Также экспортируем вспомогательные функции, которые могут понадобиться
+export function getLastCachedAnalysis(fileId: string): FileAnalysisCache | null {
+    try {
+        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return null;
+        return JSON.parse(cached);
+    } catch {
+        return null;
+    }
+}
+
+export function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResult): void {
+    try {
+        const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        const cacheData: FileAnalysisCache = {
+            fileId,
+            analysis,
+            timestamp: Date.now(),
+            hash: hashCode(code)
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+        console.error('Cache write error:', error);
+    }
+}
+
+function hashCode(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return hash.toString(36);
+}
+
+function normalizeMetric(value: any): number {
+    const num = Number(value)
+    if (isNaN(num)) return 70
+    return Math.min(Math.max(Math.round(num), 0), 100)
+}
+
+function validateSeverity(severity: any): 'info' | 'warning' | 'error' {
+    const validSeverities = ['info', 'warning', 'error']
+    return validSeverities.includes(severity) ? severity : 'info'
 }
 
 /**
@@ -127,7 +164,7 @@ function generateSuggestions(code: string, flags: {
  * 
  * 2. Формат запроса:
  *    - Минимизация кода перед отправкой
- *    - Удаление комментариев и форматирования
+ *    - Удалене комментариев и форматирования
  *    - Сохранение контекста для анализа
  * 
  * 3. Структура ответа:

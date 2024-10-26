@@ -1,0 +1,103 @@
+.code-suggestion-error {
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.code-suggestion-warning {
+    background-color: rgba(255, 165, 0, 0.1);
+}
+
+.code-suggestion-info {
+    background-color: rgba(0, 0, 255, 0.1);
+}
+
+.code-suggestion-glyph-error::before {
+    content: '⚠';
+    color: #ff0000;
+}
+
+.code-suggestion-glyph-warning::before {
+    content: '⚠';
+    color: #ffa500;
+}
+
+.code-suggestion-glyph-info::before {
+    content: 'ℹ';
+    color: #0000ff;
+}
+
+.ai-fix-button {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #2d2d2d;
+    color: #fff;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 100;
+}
+
+.ai-fix-button:hover {
+    background-color: #404040;
+}
+
+.ai-fix-button-icon {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.code-suggestion-error:hover .ai-fix-button,
+.code-suggestion-warning:hover .ai-fix-button,
+.code-suggestion-info:hover .ai-fix-button {
+    opacity: 1;
+}
+
+/* Стили для контекстного меню AI */
+.monaco-menu .action-item.focused .action-label.ai-refactor {
+    background-color: #2d2d2d !important;
+    color: #fff !important;
+}
+
+/* Анимация для оверлея */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.overlay-analysis {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Убираем лишние стили */
+.monaco-hover {
+    border-radius: 4px !important;
+    border: 1px solid #404040 !important;
+}
+
+.monaco-hover .markdown-hover code {
+    background-color: #2d2d2d !important;
+    border-radius: 2px !important;
+    padding: 2px 4px !important;
+}
+
+/* Стили для подсказок рефакторинга */
+.refactor-suggestion {
+    background-color: var(--vscode-editor-background);
+    border-left: 2px solid #3b82f6;
+    margin: 4px 0;
+    padding: 8px 12px;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--vscode-editor-foreground);
+}
+
+.refactor-suggestion:hover {
+    background-color: var(--vscode-editor-hoverHighlightBackground);
+}

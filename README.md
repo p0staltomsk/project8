@@ -1,80 +1,126 @@
-# AI Code Assistant
+# 🚀 AI Code Assistant
 
-Modern code editor with AI-powered code analysis and real-time quality metrics.
+Modern code editor with AI-powered code analysis and real-time quality metrics, powered by GROQ API.
 
-## Features
+## ✨ Features
 
-### Editor
-- Monaco-based code editor with TypeScript support
-- Dark/Light theme switching
-- File tree navigation with modification tracking
-- Search functionality (Ctrl+F)
-- Auto-save and file state persistence
+### 🎯 Core Features
+- **Real-time Code Analysis**
+  - Quality metrics (readability, complexity, performance)
+  - Smart code suggestions
+  - Line-specific improvement recommendations
+  - AI-powered refactoring suggestions
 
-### AI Analysis
-- Real-time code quality metrics:
-  - Readability score
-  - Complexity assessment
-  - Performance evaluation
-- Smart code suggestions
-- Line-specific improvement recommendations
+- **Advanced Editor**
+  - Monaco-based code editor with TypeScript support
+  - Custom dark theme optimized for long coding sessions
+  - File tree navigation
+  - Smart search functionality (Ctrl+F)
+  - Auto-save with analysis caching
 
-### UI/UX
+- **AI Integration**
+  - GROQ API integration for code analysis
+  - Context-aware suggestions
+  - Intelligent code refactoring
+  - Performance optimization hints
+
+### 🎨 UI/UX
 - Clean, modern interface with Tailwind CSS
-- Collapsible sidebar and AI assistant panels
-- File modification indicators
-- Keyboard shortcuts support
 - Responsive layout design
+- Customizable editor theme
+- Intuitive file management
+- Real-time feedback system
 
-## Getting Started
+## 🚦 Project Status
+
+### ✅ Completed
+- [x] GROQ API integration
+- [x] Code analysis system
+- [x] Custom dark theme
+- [x] File system implementation
+- [x] Analysis caching system
+- [x] Basic code metrics
+- [x] Search functionality
+- [x] Error handling
+
+### 🏗️ In Progress
+- [ ] Advanced refactoring features
+- [ ] Code formatting on save
+- [ ] Settings panel implementation
+- [ ] Project-wide analysis
+- [ ] Performance optimizations
+
+### 📋 Planned
+- [ ] Prettier integration
+- [ ] Git integration
+- [ ] Team collaboration features
+- [ ] Custom analysis rules
+- [ ] Export/Import functionality
+
+## 🛠️ Tech Stack
+- React 18
+- TypeScript
+- Monaco Editor
+- Tailwind CSS
+- GROQ API
+- Vite
+
+## 🚀 Getting Started
 
 ```bash
 # Install dependencies
 npm install
 
+# Add your GROQ API key to .env
+echo "VITE_GROQ_API_KEY=your_key_here" > .env
+
 # Start development server
 npm run dev
-
-# Run tests
-npm test
 
 # Build for production
 npm run build
 ```
 
-## Tech Stack
-- React 18
-- TypeScript
-- Monaco Editor
-- Tailwind CSS
-- Jest + Testing Library
-
-## Development
-
-### Project Structure
+## 📁 Project Structure
 ```
 src/
 ├── components/
-│   ├── AIAssistant/
 │   ├── Editor/
+│   │   ├── Editor.tsx
+│   │   ├── MonacoConfig.ts
+│   │   └── useCodeAnalysis.ts
 │   ├── Layout/
-│   ├── Sidebar/
-│   └── Toolbar/
+│   └── Sidebar/
 ├── services/
+│   ├── aiRefactor.ts
 │   ├── codeAnalysis.ts
 │   └── fileSystem.ts
-└── types/
+├── config/
+│   └── groq.ts
+├── types/
+└── styles/
 ```
 
-### TODO
-- [ ] Implement Grog API integration for code analysis
-- [ ] Add file creation/editing functionality
-- [ ] Add code formatting on save
-- [ ] Complete test coverage
-- [ ] Implement project import/export
+## 🤝 Contributing
 
-## Contributing
-Feel free to submit issues and pull requests.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-## License
-MIT
+### Development Guidelines
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## 📝 License
+
+MIT License - see the [LICENSE](LICENSE) file for details
+
+## 🙏 Acknowledgments
+- GROQ API for powerful AI capabilities
+- Monaco Editor team
+- React and TypeScript communities
+
+---
+
+<p align="center">Made with ❤️ by developers, for developers</p>
