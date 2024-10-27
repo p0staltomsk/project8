@@ -219,6 +219,28 @@ src/
 └── types/
     └── codeAnalysis.ts
 ```
+### 💎 Pricing Plans
+
+#### Free Tier
+- Basic code analysis
+- TypeScript error detection
+- Critical issues highlighting
+- Limited suggestions (editor-only)
+
+#### Pro Plan 🌟
+- Advanced AI-powered analysis
+- Full code quality metrics
+- Unlimited suggestions
+- Performance insights
+- Security recommendations
+- Priority support
+
+#### Enterprise
+- Custom deployment
+- Team collaboration
+- Advanced security features
+- API access
+- Dedicated support
 
 ## 🤝 Contributing
 

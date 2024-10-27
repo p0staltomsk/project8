@@ -37,6 +37,8 @@ interface EditorProps extends BaseProps {
 export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, onAnalysisChange }: EditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
+  const isInitialMount = useRef<boolean>(true) // Добавляем ref для отслеживания первого монтирования
+  
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
   const [analysis, setAnalysis] = useState<CodeAnalysisResult>({
     metrics: {
@@ -73,18 +75,37 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
   useEffect(() => {
     if (currentFile) {
         setCode(currentFile.content);
-        setTypescriptMarkers([]);
+        setTypescriptMarkers([]); // Очищаем маркеры
+        isInitialMount.current = true;
         
-        // Показываем состояние загрузки вместо дефолтных значений
-        setAnalysis(prev => ({
-            ...prev,
-            isLoading: true
-        }));
-
-        // Пытаемся загрузить кэшированный анализ
+        // Проверяем кеш перед сбросом
         const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
+        
         if (cachedAnalysis) {
+            // Если есть кешированный анализ - используем его
             setAnalysis(cachedAnalysis);
+            onAnalysisChange?.(cachedAnalysis);
+        } else {
+            // Если нет кеша - сбрасываем в начальное состояние
+            const defaultAnalysis = {
+                metrics: {
+                    readability: 0,
+                    complexity: 0,
+                    performance: 0,
+                    security: 0
+                },
+                explanations: {
+                    readability: { score: 0, strengths: [], improvements: [] },
+                    complexity: { score: 0, strengths: [], improvements: [] },
+                    performance: { score: 0, strengths: [], improvements: [] },
+                    security: { score: 0, strengths: [], improvements: [] }
+                },
+                suggestions: [],
+                isInitialState: true
+            };
+
+            setAnalysis(defaultAnalysis);
+            onAnalysisChange?.(defaultAnalysis);
         }
     }
   }, [currentFile?.id]);
@@ -92,6 +113,34 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Обрабатываем маркеры сразу и при изменениях
+    monaco.editor.onDidChangeMarkers((uris) => {
+        const model = editor.getModel();
+        if (!model) return;
+
+        if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
+
+        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+        const newMarkerSuggestions = markers
+            .filter(isRelevantMarker)
+            .map(markerToSuggestion);
+        
+        setTypescriptMarkers(newMarkerSuggestions);
+
+        // Обновляем анализ с новыми маркерами
+        setAnalysis(prev => ({
+            ...prev,
+            suggestions: newMarkerSuggestions,
+            isInitialState: false // Важно! Сбрасываем начальное состояние
+        }));
+        
+        onAnalysisChange?.({
+            ...analysis,
+            suggestions: newMarkerSuggestions,
+            isInitialState: false
+        });
+    });
 
     // Добавляем действие AI auto-fix
     editor.addAction({
@@ -120,49 +169,6 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
                 />
             );
         }
-    });
-
-    // Настраиваем обработчик маркеров
-    monaco.editor.onDidChangeMarkers((uris) => {
-        const model = editor.getModel();
-        if (!model) return;
-
-        if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
-
-        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
-        const newMarkerSuggestions = markers
-            .filter(isRelevantMarker)
-            .map(markerToSuggestion);
-        
-        setTypescriptMarkers(newMarkerSuggestions);
-
-        const aiSuggestions = analysis.suggestions.filter(s => 
-            !s.message.includes('[TypeScript]') &&
-            !s.message.includes('[Type Error]') &&
-            !s.message.includes('[Type Mismatch]') &&
-            !s.message.includes('[Missing Module]') &&
-            !s.message.includes('[Syntax Error]') &&
-            !s.message.includes('[Declaration Error]')
-        );
-
-        const combinedSuggestions = [
-            ...newMarkerSuggestions,
-            ...aiSuggestions
-        ].sort((a, b) => {
-            if (a.line !== b.line) return a.line - b.line;
-            const severityOrder = { error: 0, warning: 1, info: 2 };
-            return severityOrder[a.severity] - severityOrder[b.severity];
-        });
-
-        setAnalysis(prev => ({
-            ...prev,
-            suggestions: combinedSuggestions
-        }));
-        
-        onAnalysisChange?.({
-            ...analysis,
-            suggestions: combinedSuggestions
-        });
     });
   };
 
@@ -230,7 +236,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
 
   // Обработка сохранения и получения новой оценки
   const handleSave = async (code: string) => {
-    if (!currentFile) return;
+    if (!currentFile || !editorRef.current) return;
 
     try {
         const notification = document.createElement('div');
@@ -241,26 +247,47 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         try {
             const newAnalysis = await analyzeCode(code, currentFile.id);
             
-            // В случае успешного анализа используем полученные данные
-            const combinedSuggestions = [
-                ...typescriptMarkers,
-                ...newAnalysis.suggestions.filter(suggestion => 
-                    !typescriptMarkers.some(marker => 
-                        marker.line === suggestion.line && 
-                        suggestion.message.includes(marker.message.replace(/\[.*?\]\s/, ''))
-                    )
-                )
-            ].sort((a, b) => a.line - b.line);
+            // Проверяем на идеальный код
+            const isPerfect = Object.values(newAnalysis.metrics).every(v => v >= 85);
+            
+            const combinedSuggestions = isPerfect 
+                ? [{ 
+                    line: 1, 
+                    message: '[Perfect Code] This code meets all quality standards', 
+                    severity: 'info' as const
+                }]
+                : typescriptMarkers;
 
             const updatedAnalysis = {
-                metrics: newAnalysis.metrics,
-                explanations: newAnalysis.explanations,
+                ...newAnalysis,
                 suggestions: combinedSuggestions,
-                isLoading: false
+                isLoading: false,
+                isInitialState: false
             };
 
             setAnalysis(updatedAnalysis);
             onAnalysisChange?.(updatedAnalysis);
+            
+            // Правильно очищаем индикатор изменений
+            const model = editorRef.current.getModel();
+            if (model) {
+                // Сохраняем текущую позицию курсора
+                const position = editorRef.current.getPosition();
+                
+                // Обновляем модель и сбрасываем dirty state
+                model.setValue(code);
+                model.setEOL(0); // 0 для LF, 1 для CRLF
+                
+                // Восстанавливаем позицию курсора
+                if (position) {
+                    editorRef.current.setPosition(position);
+                }
+                
+                // Сбрасываем историю отмены до текущего состояния
+                model.pushStackElement();
+            }
+
+            // Вызываем колбэк сохранения
             onSave?.(code);
 
             notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
@@ -268,33 +295,12 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
             setTimeout(() => notification.remove(), 2000);
 
         } catch (analysisError) {
-            console.error('Analysis failed:', analysisError);
-            
-            // В случае ошибки анализа показываем только TypeScript маркеры
-            // и индикатор ошибки вместо дефолтных значений
-            const fallbackAnalysis = {
-                metrics: {
-                    readability: 0,
-                    complexity: 0,
-                    performance: 0,
-                    security: 0
-                },
-                explanations: {
-                    readability: { score: 0, strengths: [], improvements: [] },
-                    complexity: { score: 0, strengths: [], improvements: [] },
-                    performance: { score: 0, strengths: [], improvements: [] },
-                    security: { score: 0, strengths: [], improvements: [] }
-                },
-                suggestions: typescriptMarkers,
-                error: true
-            };
-
-            setAnalysis(fallbackAnalysis);
-            onAnalysisChange?.(fallbackAnalysis);
+            console.error('Analysis error:', analysisError);
+            // Даже при ошибке анализа, мы все равно сохраняем файл
             onSave?.(code);
-
+            
             notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-            notification.textContent = 'Analysis failed. Showing TypeScript issues only.';
+            notification.textContent = 'Analysis failed, but file was saved';
             setTimeout(() => notification.remove(), 3000);
         }
 
@@ -308,15 +314,21 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
     }
   };
 
-  // Обрботка Ctrl+S
+  // Обработка Ctrl+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key === 'ы')) {
-        e.preventDefault();
-        if (currentFile) {
-          handleSave(code);
+        // Проверяем все возможные варианты 'S' и 'ы'
+        const isS = e.key.toLowerCase() === 's' || 
+                   e.key.toLowerCase() === 'ы' || 
+                   e.key === 'S' || 
+                   e.key === 'Ы';
+                   
+        if ((e.ctrlKey || e.metaKey) && isS) {
+            e.preventDefault();
+            if (currentFile && code) {
+                handleSave(code);
+            }
         }
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);

@@ -45,42 +45,24 @@ export default function AIAssistant({
     const { 
         suggestionsState, 
         filterSuggestions, 
-        toggleFilter 
+        toggleFilter,
+        setSuggestions
     } = useSuggestionsState(initialSuggestions);
 
-    // Обновляем функцию проверки "идеального" кода
+    // Упрощаем логику проверки идеального кода
     const isPerfectCode = useCallback(() => {
-        // Проверяем наличие suggestions
-        const hasNoSuggestions = suggestionsState.items.length === 0;
-        
-        // Проверяем высокие метрики (85+ считаем хорошим показателем)
-        const hasHighMetrics = Object.values(metricsState.values).every(
-            (value: number) => value >= 85
-        );
-        
-        // Проверяем наличие объяснений
-        const hasExplanations = Object.values(initialExplanations).every(
-            (exp) => exp.strengths.length > 0
-        );
+        return Object.values(metricsState.values).every(value => value >= 85) &&
+               suggestionsState.items.length === 1 && 
+               suggestionsState.items[0].message.includes('[Perfect Code]');
+    }, [metricsState.values, suggestionsState.items]);
 
-        return hasNoSuggestions && hasHighMetrics && hasExplanations;
-    }, [suggestionsState.items, metricsState.values, initialExplanations]);
-
-    // Добавляем эффект для установки isReady
+    // Один эффект для обработки изменений
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsReady(true);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Обновляем isReady при изменении данных
-    useEffect(() => {
-        if (initialMetrics && initialSuggestions) {
+        if (initialSuggestions) {
+            setSuggestions(initialSuggestions);
             setIsReady(true);
         }
-    }, [initialMetrics, initialSuggestions]);
+    }, [initialSuggestions]);
 
     return (
         <div className={`h-full bg-white dark:bg-gray-800 border-l 
@@ -102,20 +84,10 @@ export default function AIAssistant({
                 <MetricsSection 
                     metrics={metricsState.values}
                     explanations={initialExplanations}
-                    isLoading={!isReady || metricsState.isLoading}
+                    isLoading={!isReady}
                 />
 
-                {!isPerfectCode() && (
-                    <SuggestionsSection 
-                        suggestions={filterSuggestions(suggestionsState.items)}
-                        isLoading={!isReady}
-                        filters={suggestionsState.filters}
-                        onToggleFilter={toggleFilter}
-                        isPerfectCode={isPerfectCode()}
-                    />
-                )}
-
-                {isPerfectCode() && isReady && (
+                {isPerfectCode() ? (
                     <div className="flex flex-col items-center justify-center p-6 space-y-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
                         <Trophy className="w-16 h-16 text-yellow-400 animate-pulse" />
                         <div className="text-center">
@@ -127,6 +99,15 @@ export default function AIAssistant({
                             </p>
                         </div>
                     </div>
+                ) : (
+                    <SuggestionsSection 
+                        suggestions={filterSuggestions(suggestionsState.items)}
+                        isLoading={!isReady}
+                        filters={suggestionsState.filters}
+                        onToggleFilter={toggleFilter}
+                        isPerfectCode={isPerfectCode()}
+                        isInitialState={suggestionsState.isInitialState}
+                    />
                 )}
             </div>
         </div>

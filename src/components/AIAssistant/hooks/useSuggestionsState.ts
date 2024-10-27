@@ -1,6 +1,6 @@
 // Управление состоянием suggestions
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CodeSuggestion } from '@/types/codeAnalysis';
 
 interface SuggestionsState {
@@ -14,11 +14,12 @@ interface SuggestionsState {
         editor: boolean;
         ai: boolean;
     };
+    isInitialState: boolean;
 }
 
 export function useSuggestionsState(initialSuggestions?: CodeSuggestion[]) {
     const [suggestionsState, setSuggestionsState] = useState<SuggestionsState>({
-        items: [],
+        items: initialSuggestions || [],
         isLoading: false,
         filters: {
             typescript: true,
@@ -27,24 +28,21 @@ export function useSuggestionsState(initialSuggestions?: CodeSuggestion[]) {
         source: {
             editor: true,
             ai: true
-        }
+        },
+        isInitialState: true // Всегда начинаем с true
     });
 
-    useEffect(() => {
-        if (initialSuggestions) {
-            setSuggestionsState(prev => ({
-                ...prev,
-                items: initialSuggestions,
-                lastUpdated: Date.now()
-            }));
-        } else {
-            setSuggestionsState(prev => ({
-                ...prev,
-                items: [],
-                lastUpdated: Date.now()
-            }));
-        }
-    }, [initialSuggestions]);
+    const setSuggestions = (suggestions: CodeSuggestion[]) => {
+        setSuggestionsState(prev => ({
+            ...prev,
+            items: suggestions,
+            // Меняем логику: isInitialState = true только если нет анализа вообще
+            isInitialState: suggestions.length === 0 && !suggestions.some(s => 
+                s.message.includes('[AI Analysis]') || 
+                s.message.includes('[Perfect Code]')
+            )
+        }));
+    };
 
     const filterSuggestions = (suggestions: CodeSuggestion[]) => {
         return suggestions.length > 0 
@@ -75,7 +73,7 @@ export function useSuggestionsState(initialSuggestions?: CodeSuggestion[]) {
 
     return {
         suggestionsState,
-        setSuggestionsState,
+        setSuggestions,
         filterSuggestions,
         toggleFilter
     };
