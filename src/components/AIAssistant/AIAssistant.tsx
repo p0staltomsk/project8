@@ -14,6 +14,7 @@ interface AIAssistantProps extends BaseProps {
     metrics: CodeMetrics
     suggestions: CodeSuggestion[]
     explanations: CodeExplanations
+    onProblemClick?: (line: number) => void // Добавляем новый проп
 }
 
 /**
@@ -38,7 +39,8 @@ export default function AIAssistant({
     toggleAssistant, 
     metrics, 
     suggestions, 
-    explanations 
+    explanations,
+    onProblemClick 
 }: AIAssistantProps) {
     const [isReady, setIsReady] = useState(false);
     const [isIssuesVisible, setIsIssuesVisible] = useState(false);
@@ -124,6 +126,11 @@ export default function AIAssistant({
         });
         document.dispatchEvent(event);
     }, []);
+
+    // Добавляем обработчик клика по проблеме
+    const handleProblemClick = useCallback((line: number) => {
+        onProblemClick?.(line);
+    }, [onProblemClick]);
 
     return (
         <div className={`h-full bg-white dark:bg-gray-800 border-l 
@@ -217,24 +224,37 @@ export default function AIAssistant({
                                     <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
                                 )}
                             </div>
-                            <ul className="space-y-2 max-h-[200px] overflow-y-auto">
+                            <ul className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent pr-2">
                                 {freeTierSuggestions.map((suggestion, index) => (
                                     <li 
                                         key={index}
+                                        onClick={() => handleProblemClick(suggestion.line)}
                                         style={{ 
                                             transitionDelay: `${index * 50}ms`
                                         }}
-                                        className={`text-xs p-2 rounded border transform transition-all duration-300 ease-in-out ${
-                                            isIssuesVisible 
+                                        className={`text-xs p-2 rounded border transform transition-all duration-300 ease-in-out 
+                                            cursor-pointer hover:bg-opacity-80 hover:scale-[1.01] active:scale-[0.99]
+                                            break-words whitespace-normal overflow-hidden
+                                            ${isIssuesVisible 
                                                 ? 'opacity-100 translate-y-0' 
                                                 : 'opacity-0 translate-y-2'
-                                        } ${
-                                            suggestion.severity === 'error' 
-                                                ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-                                                : 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300'
-                                        }`}
+                                            } ${
+                                                suggestion.severity === 'error' 
+                                                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/20'
+                                                    : 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/20'
+                                            }`}
                                     >
-                                        <span className="font-medium">Line {suggestion.line}:</span> {suggestion.message}
+                                        <div className="flex items-start space-x-2">
+                                            <span className="flex-shrink-0 mt-0.5">
+                                                {suggestion.severity === 'error' ? '🔴' : '⚠️'}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="font-medium">Line {suggestion.line}:</span>{' '}
+                                                <span className="break-words">
+                                                    {suggestion.message}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

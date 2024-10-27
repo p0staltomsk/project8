@@ -30,12 +30,23 @@ interface EditorProps extends BaseProps {
   onSave?: (code: string) => void
   onChange?: (code: string) => void
   currentFile: { id: string; name: string; content: string } | null
-  onAnalysisChange?: (analysis: CodeAnalysisResult) => void  // Добавляем новый проп
+  onAnalysisChange?: (analysis: CodeAnalysisResult) => void
+  editorRef?: React.MutableRefObject<editor.IStandaloneCodeEditor | null> // Добавляем ref
 }
 
-export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, onAnalysisChange }: EditorProps) {
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+export default function CodeEditor({ 
+  isDarkMode, 
+  onSave, 
+  onChange, 
+  currentFile, 
+  onAnalysisChange,
+  editorRef: externalEditorRef // Получаем внешний ref
+}: EditorProps) {
+  const internalEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
+  
+  // Используем внешний ref если он предоставлен
+  const editorRef = externalEditorRef || internalEditorRef;
   
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
   

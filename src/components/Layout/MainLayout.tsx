@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { BaseProps } from '@/types'
 import Sidebar from '@/components/Sidebar/Sidebar'
 import AIAssistant from '@/components/AIAssistant/AIAssistant'
@@ -8,6 +8,7 @@ import SettingsPanel from '@/components/Settings/SettingsPanel'
 import { ChevronLeft } from 'lucide-react'
 import { analyzeCode } from '@/services/codeAnalysis'
 import type { CodeAnalysisResult } from '@/types/codeAnalysis'
+import type { editor } from 'monaco-editor'
 
 interface MainLayoutProps extends BaseProps {
     isSidebarOpen: boolean
@@ -158,7 +159,7 @@ export default function MainLayout({
                 s.message.includes('[Syntax Error]')
             );
             
-            // Объединяем TypeScript ошибки с результатами анализа
+            // Объединяем TypeScript ошбки с результатами анализа
             const updatedAnalysis = {
                 ...analysis,
                 suggestions: [
@@ -195,6 +196,17 @@ export default function MainLayout({
         }
     }, [currentFile]);
 
+    const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+
+    // Добавляем обработчик клика по проблеме
+    const handleProblemClick = useCallback((line: number) => {
+        if (editorRef.current) {
+            editorRef.current.revealLineInCenter(line);
+            editorRef.current.setPosition({ lineNumber: line, column: 1 });
+            editorRef.current.focus();
+        }
+    }, []);
+
     return (
         <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 ${isDarkMode ? 'dark' : ''} overflow-hidden`}>
             <div className={`transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
@@ -219,6 +231,7 @@ export default function MainLayout({
                     onChange={handleEditorChange}
                     currentFile={currentFile}
                     onAnalysisChange={handleAnalysisChange}
+                    editorRef={editorRef}
                 />
             </div>
 
@@ -228,7 +241,8 @@ export default function MainLayout({
                     toggleAssistant={toggleAssistant}
                     metrics={currentAnalysis.metrics}
                     suggestions={currentAnalysis.suggestions}
-                    explanations={currentAnalysis.explanations} // Явно передаем explanations
+                    explanations={currentAnalysis.explanations}
+                    onProblemClick={handleProblemClick}
                 />
             </div>
 
