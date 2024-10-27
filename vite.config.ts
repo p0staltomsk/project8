@@ -31,7 +31,7 @@ export default defineConfig(({ command }) => ({
   },
   server: {
     cors: true,
-    port: 5173,
+    port: 5666,
     strictPort: true
   }
 }))

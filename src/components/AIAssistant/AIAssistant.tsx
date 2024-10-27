@@ -48,14 +48,23 @@ export default function AIAssistant({
         toggleFilter 
     } = useSuggestionsState(initialSuggestions);
 
-    // Проверяем, является ли код "идеальным"
+    // Обновляем функцию проверки "идеального" кода
     const isPerfectCode = useCallback(() => {
+        // Проверяем наличие suggestions
         const hasNoSuggestions = suggestionsState.items.length === 0;
+        
+        // Проверяем высокие метрики (85+ считаем хорошим показателем)
         const hasHighMetrics = Object.values(metricsState.values).every(
-            (value: number) => value >= 90
+            (value: number) => value >= 85
         );
-        return hasNoSuggestions && hasHighMetrics;
-    }, [suggestionsState.items, metricsState.values]);
+        
+        // Проверяем наличие объяснений
+        const hasExplanations = Object.values(initialExplanations).every(
+            (exp) => exp.strengths.length > 0
+        );
+
+        return hasNoSuggestions && hasHighMetrics && hasExplanations;
+    }, [suggestionsState.items, metricsState.values, initialExplanations]);
 
     // Добавляем эффект для установки isReady
     useEffect(() => {

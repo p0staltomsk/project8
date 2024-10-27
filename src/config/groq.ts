@@ -10,8 +10,22 @@ export const GROQ_CONFIG = {
     timeout: 10000,
 } as const;
 
-// Обновляем системный промпт для более надежного ответа
-export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a code analyzer. Return ONLY a JSON object (no explanation, no markdown) with the following structure:
+// Обновляем системный промпт для более логичной оценки
+export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a code analyzer. Return ONLY a JSON object with the following structure and rules:
+
+1. Metrics should be calculated based on these principles:
+   - readability: clarity, naming, formatting (0-100)
+   - complexity: cyclomatic complexity, nesting levels, function size (0-100, higher is better/simpler)
+   - performance: algorithmic efficiency, memory usage (0-100)
+   - security: input validation, error handling (0-100)
+
+2. If code is simple and well-written:
+   - All metrics should be high (90-100)
+   - Include positive explanations in strengths
+   - Empty improvements array is OK
+   - No suggestions needed
+
+Return this structure:
 {
   "metrics": {
     "readability": number (0-100),

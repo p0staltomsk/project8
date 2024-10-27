@@ -26,11 +26,8 @@ export function getCachedAnalysis(fileId: string, code: string): CodeAnalysisRes
 
         const parsedCache: AnalysisCache = JSON.parse(cached);
         
-        // Проверяем наличие всех необходимых метрик
-        if (!parsedCache.analysis?.metrics?.security || 
-            !parsedCache.analysis?.metrics?.readability ||
-            !parsedCache.analysis?.metrics?.complexity ||
-            !parsedCache.analysis?.metrics?.performance) {
+        // Проверяем наличие всех необходимых данных
+        if (!isValidAnalysis(parsedCache.analysis)) {
             return null;
         }
         
@@ -48,4 +45,27 @@ export function getCachedAnalysis(fileId: string, code: string): CodeAnalysisRes
     } catch {
         return null;
     }
+}
+
+function isValidAnalysis(analysis: CodeAnalysisResult): boolean {
+    // Проверяем наличие всех метрик
+    const hasMetrics = analysis?.metrics &&
+        typeof analysis.metrics.readability === 'number' &&
+        typeof analysis.metrics.complexity === 'number' &&
+        typeof analysis.metrics.performance === 'number' &&
+        typeof analysis.metrics.security === 'number';
+
+    // Проверяем наличие объяснений и их непустоту
+    const hasExplanations = analysis?.explanations &&
+        Array.isArray(analysis.explanations.readability?.strengths) &&
+        Array.isArray(analysis.explanations.complexity?.strengths) &&
+        Array.isArray(analysis.explanations.performance?.strengths) &&
+        Array.isArray(analysis.explanations.security?.strengths) &&
+        // Проверяем, что хотя бы один массив strengths не пустой
+        (analysis.explanations.readability?.strengths.length > 0 ||
+         analysis.explanations.complexity?.strengths.length > 0 ||
+         analysis.explanations.performance?.strengths.length > 0 ||
+         analysis.explanations.security?.strengths.length > 0);
+
+    return Boolean(hasMetrics && hasExplanations);
 }

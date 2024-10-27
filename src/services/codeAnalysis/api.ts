@@ -103,7 +103,7 @@ export async function analyzeCode(code: string, fileId: string = 'default'): Pro
 }
 
 function validateAnalysisData(data: any): CodeAnalysisResult {
-    // Улучшенная валидация с fallback значениями
+    // Базовые метрики с fallback значениями
     const metrics = {
         readability: Number(data?.metrics?.readability) || DEFAULT_ANALYSIS.metrics.readability,
         complexity: Number(data?.metrics?.complexity) || DEFAULT_ANALYSIS.metrics.complexity,
@@ -111,18 +111,40 @@ function validateAnalysisData(data: any): CodeAnalysisResult {
         security: Number(data?.metrics?.security) || DEFAULT_ANALYSIS.metrics.security
     };
 
+    // Проверяем и нормализуем объяснения
     const explanations = {
-        readability: data?.explanations?.readability || DEFAULT_ANALYSIS.explanations.readability,
-        complexity: data?.explanations?.complexity || DEFAULT_ANALYSIS.explanations.complexity,
-        performance: data?.explanations?.performance || DEFAULT_ANALYSIS.explanations.performance,
-        security: data?.explanations?.security || DEFAULT_ANALYSIS.explanations.security
+        readability: validateExplanation(data?.explanations?.readability, metrics.readability),
+        complexity: validateExplanation(data?.explanations?.complexity, metrics.complexity),
+        performance: validateExplanation(data?.explanations?.performance, metrics.performance),
+        security: validateExplanation(data?.explanations?.security, metrics.security)
     };
 
     const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
 
+    return { metrics, explanations, suggestions };
+}
+
+function validateExplanation(exp: any, score: number) {
+    if (!exp || typeof exp !== 'object') {
+        // Создаем базовое объяснение для высоких оценок
+        if (score >= 85) {
+            return {
+                score,
+                strengths: ['Code follows best practices'],
+                improvements: []
+            };
+        }
+        // Для низких оценок
+        return {
+            score,
+            strengths: [],
+            improvements: ['Needs improvement']
+        };
+    }
+
     return {
-        metrics,
-        explanations,
-        suggestions
+        score: exp.score || score,
+        strengths: Array.isArray(exp.strengths) ? exp.strengths : [],
+        improvements: Array.isArray(exp.improvements) ? exp.improvements : []
     };
 }
