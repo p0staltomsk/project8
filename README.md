@@ -80,6 +80,39 @@ npm run test:coverage
 
 ## 🚦 Project Status
 
+### 🔴 Critical Issues (Alpha Testing)
+1. **Metrics Initialization**
+   - Issue: Metrics reset to 70% after initial load
+   - Impact: Poor UX, misleading display
+   - Fix Plan:
+     - [ ] Refactor metrics initialization
+     - [ ] Implement proper loading states
+     - [ ] Add smooth transitions
+
+2. **Explanations Consistency**
+   - Issue: Unstable explanations visibility
+   - Impact: Confusing interface
+   - Fix Plan:
+     - [ ] Implement persistent states
+     - [ ] Add proper state management
+     - [ ] Store user preferences
+
+3. **TypeScript Integration**
+   - Issue: Issues disappear after AI analysis
+   - Impact: Loss of development feedback
+   - Fix Plan:
+     - [ ] Implement markers persistence
+     - [ ] Merge with AI suggestions
+     - [ ] Prevent cleanup during analysis
+
+4. **UI/UX Improvements**
+   - Issue: Layout and usability concerns
+   - Impact: Suboptimal user experience
+   - Fix Plan:
+     - [ ] Fix scrollbar layout shifts
+     - [ ] Improve save action visibility
+     - [ ] Add proper loading indicators
+
 ### ✅ Completed
 - [x] GROQ API integration with enhanced prompts
 - [x] Advanced code analysis system with explanations
@@ -101,13 +134,11 @@ npm run test:coverage
 
 ### 🏗️ In Progress
 - [ ] Metrics Stability Issues
-  - [ ] Fix initial metrics flickering (70% default values)
+  - [ ] Fix initial metrics flickering
   - [ ] Prevent metrics jumping when switching files
   - [ ] Maintain consistent TypeScript issues display
   - [ ] Fix AI suggestions persistence
   - [ ] Improve real-time code analysis updates
-  - [ ] Disable AI Suggestions button when no analysis available
-  - [ ] Add "Save document to get Suggestions" tooltip
 
 - [ ] Analysis System Improvements
   - [ ] Implement proper state management for metrics
@@ -115,12 +146,6 @@ npm run test:coverage
   - [ ] Add real-time AI suggestions updates
   - [ ] Improve caching mechanism
   - [ ] Add analysis state persistence
-
-- [ ] UX Improvements
-  - [ ] Add loading states for metrics
-  - [ ] Smooth transitions for metric changes
-  - [ ] Better error handling and feedback
-  - [ ] Improve analysis update indicators
 
 ### 📋 Planned
 - [ ] Testing Infrastructure
@@ -136,25 +161,25 @@ npm run test:coverage
 
 ## 🎯 Next Steps Priority
 
-1. Testing Infrastructure Enhancement
-   - Complete AIAssistant component tests
-   - Add tests for code analysis services
-   - Implement integration tests for core workflows
+1. Fix Critical Issues
+   - Metrics initialization and stability
+   - TypeScript integration
+   - UI/UX improvements
 
-2. Metrics Stability Issues
-   - Fix metrics initialization (70% default values)
-   - Implement proper state management
-   - Add loading states and transitions
+2. Testing Infrastructure
+   - Complete AIAssistant tests
+   - Add analysis service tests
+   - Implement integration tests
 
-3. Analysis System Improvements
+3. Analysis System
    - Refactor analysis pipeline
    - Implement proper caching
    - Add real-time updates
 
 4. Documentation
    - Add testing documentation
-   - Update component API documentation
-   - Create contribution guidelines for tests
+   - Update API documentation
+   - Create contribution guidelines
 
 ## 🛠️ Tech Stack
 - React 18
@@ -231,75 +256,3 @@ MIT License
 ### Made with ❤️ by developers, for developers
 
 </div>
-
-### 🏗️ Critical Issues (Alpha Testing)
-
-#### 1. Metrics Initialization Bug (High Priority)
-- **Issue**: All metrics reset to 70% after initial load with animation
-- **Impact**: Poor UX, misleading metrics display
-- **Fix Plan**:
-  - [ ] Refactor metrics initialization in `useMetricsState`
-  - [ ] Remove default 70% values
-  - [ ] Implement proper loading states
-  - [ ] Add smooth transitions only for actual updates
-
-#### 2. Explanations Inconsistency (High Priority)
-- **Issue**: Unstable explanations visibility and state
-- **Impact**: Poor UX, confusing interface
-- **Fix Plan**:
-  - [ ] Implement persistent explanation states
-  - [ ] Add proper state management for expanded/collapsed states
-  - [ ] Store user preferences for explanations visibility
-  - [ ] Add smooth transitions for state changes
-
-#### 3. TypeScript Issues Persistence (High Priority)
-- **Issue**: TypeScript issues disappear after AI analysis
-- **Impact**: Loss of important development feedback
-- **Fix Plan**:
-  - [ ] Implement proper markers persistence
-  - [ ] Merge TypeScript issues with AI suggestions
-  - [ ] Add proper state management for editor markers
-  - [ ] Prevent markers cleanup during analysis
-
-#### 4. Scrollbar Layout Issues (Medium Priority)
-- **Issue**: System scrollbar causes layout shifts
-- **Impact**: Poor UX, inconsistent interface
-- **Fix Plan**:
-  - [ ] Implement custom scrollbar styles
-  - [ ] Fix layout calculations
-  - [ ] Add proper overflow handling
-  - [ ] Ensure consistent metrics display
-
-#### 5. Save Action Discoverability (Medium Priority)
-- **Issue**: Save action (Ctrl+S) not obvious for analysis
-- **Impact**: Users might miss important functionality
-- **Fix Plan**:
-  - [ ] Add visible save button
-  - [ ] Implement save indicator
-  - [ ] Add tooltip explaining analysis trigger
-  - [ ] Show keyboard shortcut hint
-
-### 🚀 Updated Project Status
-
-#### Current Sprint Focus
-1. Fix critical metrics initialization
-2. Implement proper state management
-3. Fix TypeScript issues persistence
-4. Improve UI/UX consistency
-5. Enhance user guidance
-
-### 🐛 Known Issues & TODOs
-
-#### Build & Deployment
-- [ ] ESLint Configuration Issue
-  - Current ESLint 9.x incompatible with some command line flags
-  - Need to either downgrade to ESLint 8.x or update configuration
-  - Impact: Development workflow only, not affecting production
-
-- [ ] Base URL Configuration
-  - [ ] Configure Vite base URL for subdirectory deployment
-  - [ ] Update asset paths for correct subdirectory serving
-  - [ ] Test deployment in various subdirectory scenarios
-
-#### Development Workflow
-...
