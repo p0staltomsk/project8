@@ -19,9 +19,8 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["@testing-library/jest-dom"],
-    "esModuleInterop": true
+    "types": ["@testing-library/jest-dom"]
   },
-  "include": ["src"],
+  "include": ["src/**/*", "src/types/*.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

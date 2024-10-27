@@ -128,17 +128,6 @@ export default function MainLayout({
         });
     }, [currentFile]);
 
-    // В функции handleAnalysisUpdate добавим отладку
-    const handleAnalysisUpdate = (analysis: CodeAnalysisResult) => {
-        console.group('MainLayout Analysis Update');
-        console.log('Full analysis:', analysis);
-        console.log('Has explanations:', !!analysis.explanations);
-        console.log('Explanations:', analysis.explanations);
-        console.groupEnd();
-
-        setCurrentAnalysis(analysis); // Убедимся что сохраняем весь объект
-    };
-
     return (
         <div className={`flex h-screen bg-gray-100 dark:bg-gray-900 ${isDarkMode ? 'dark' : ''} overflow-hidden`}>
             <div className={`transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0'}`}>

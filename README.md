@@ -287,3 +287,19 @@ MIT License
 3. Fix TypeScript issues persistence
 4. Improve UI/UX consistency
 5. Enhance user guidance
+
+### 🐛 Known Issues & TODOs
+
+#### Build & Deployment
+- [ ] ESLint Configuration Issue
+  - Current ESLint 9.x incompatible with some command line flags
+  - Need to either downgrade to ESLint 8.x or update configuration
+  - Impact: Development workflow only, not affecting production
+
+- [ ] Base URL Configuration
+  - [ ] Configure Vite base URL for subdirectory deployment
+  - [ ] Update asset paths for correct subdirectory serving
+  - [ ] Test deployment in various subdirectory scenarios
+
+#### Development Workflow
+...

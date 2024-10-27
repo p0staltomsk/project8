@@ -40,7 +40,7 @@ export default function AIAssistant({
     explanations: initialExplanations 
 }: AIAssistantProps) {
     const [isReady, setIsReady] = useState(false);
-    const { metricsState, updateMetrics } = useMetricsState(initialMetrics);
+    const { metricsState } = useMetricsState(initialMetrics);
     const { 
         suggestionsState, 
         filterSuggestions, 

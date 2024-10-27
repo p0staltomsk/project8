@@ -1,9 +1,16 @@
 // API взаимодействие
 import axios from 'axios';
-import { GROQ_CONFIG, getHeaders } from '../../config/groq';
-import { CodeAnalysisResult } from './types';
-import { normalizeMetric, validateSeverity } from './validation';
+import { GROQ_API_KEY, GROQ_CONFIG, CODE_ANALYSIS_SYSTEM_PROMPT } from '@/config/groq';
+import type { CodeAnalysisResult } from '@/types/codeAnalysis';
 import { cacheAnalysis, getCachedAnalysis } from './cache';
+
+// Добавляем функцию getHeaders
+function getHeaders() {
+    return {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+    };
+}
 
 /**
  * TODO: 
@@ -53,4 +60,18 @@ export async function analyzeCode(code: string, fileId: string = 'default'): Pro
         console.error('GROQ API Error:', error);
         throw error;
     }
+}
+
+function validateAnalysisData(data: any): CodeAnalysisResult {
+    // Базовая валидация структуры данных
+    if (!data || typeof data !== 'object') {
+        throw new Error('Invalid analysis data structure');
+    }
+
+    // Проверяем наличие необходимых полей
+    if (!data.metrics || !data.explanations || !Array.isArray(data.suggestions)) {
+        throw new Error('Missing required fields in analysis data');
+    }
+
+    return data as CodeAnalysisResult;
 }
