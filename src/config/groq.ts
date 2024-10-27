@@ -1,14 +1,36 @@
+const FALLBACK_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
 export const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 export const GROQ_CONFIG = {
-    apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    apiUrl: import.meta.env.VITE_GROQ_API_URL || FALLBACK_API_URL,
     model: 'mixtral-8x7b-32768',
     temperature: 0.1,
     maxTokens: 4000,
+    timeout: 10000,
 } as const;
 
-// Системный промт для анализа кода
-export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a professional code analyzer...`; // Ваш промпт
+// Обновляем системный промпт для более надежного ответа
+export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a code analyzer. Return ONLY a JSON object (no explanation, no markdown) with the following structure:
+{
+  "metrics": {
+    "readability": number (0-100),
+    "complexity": number (0-100),
+    "performance": number (0-100),
+    "security": number (0-100)
+  },
+  "explanations": {
+    "readability": { "score": number, "strengths": string[], "improvements": string[] },
+    "complexity": { "score": number, "strengths": string[], "improvements": string[] },
+    "performance": { "score": number, "strengths": string[], "improvements": string[] },
+    "security": { "score": number, "strengths": string[], "improvements": string[] }
+  },
+  "suggestions": [
+    { "line": number, "message": string, "severity": "error" | "warning" | "info" }
+  ]
+}
+
+Important: Return ONLY the JSON object, no additional text or formatting.`;
 
 // Промт для проверки безопасности кода
 export const SECURITY_ANALYSIS_PROMPT = `You are a security expert analyzing code for potential vulnerabilities. Focus on:

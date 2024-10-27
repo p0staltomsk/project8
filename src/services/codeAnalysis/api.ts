@@ -12,6 +12,23 @@ function getHeaders() {
     };
 }
 
+// Добавляем fallback значения для метрик
+const DEFAULT_ANALYSIS: CodeAnalysisResult = {
+    metrics: {
+        readability: 75,
+        complexity: 70,
+        performance: 80,
+        security: 75
+    },
+    explanations: {
+        readability: { score: 75, strengths: [], improvements: [] },
+        complexity: { score: 70, strengths: [], improvements: [] },
+        performance: { score: 80, strengths: [], improvements: [] },
+        security: { score: 75, strengths: [], improvements: [] }
+    },
+    suggestions: []
+};
+
 /**
  * TODO: 
  * 1. Real-time Analysis:
@@ -26,8 +43,9 @@ export async function analyzeCode(code: string, fileId: string = 'default'): Pro
         return cachedAnalysis;
     }
 
-    if (!GROQ_CONFIG.apiUrl || !GROQ_CONFIG.model) {
-        throw new Error('GROQ configuration is missing');
+    if (!GROQ_API_KEY) {
+        console.warn('GROQ API key is missing, using fallback values');
+        return DEFAULT_ANALYSIS;
     }
 
     try {
@@ -42,36 +60,69 @@ export async function analyzeCode(code: string, fileId: string = 'default'): Pro
                 temperature: GROQ_CONFIG.temperature,
                 max_tokens: GROQ_CONFIG.maxTokens,
             },
-            { headers: getHeaders() }
+            { 
+                headers: getHeaders(),
+                timeout: 10000
+            }
         );
 
-        const content = response.data.choices[0]?.message?.content;
+        const content = response.data.choices?.[0]?.message?.content;
+        
         if (!content) {
-            throw new Error('Empty response from GROQ API');
+            console.warn('Empty response from GROQ API, using fallback values');
+            return DEFAULT_ANALYSIS;
         }
 
-        const analysisData = JSON.parse(content);
-        const validatedAnalysis = validateAnalysisData(analysisData);
-        
-        cacheAnalysis(fileId, code, validatedAnalysis);
-        return validatedAnalysis;
+        try {
+            // Извлекаем JSON из markdown ответа
+            const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
+            if (!jsonMatch) {
+                console.warn('No JSON found in response, using raw content');
+                // Пробуем распарсить весь контент
+                const analysisData = JSON.parse(content);
+                const validatedAnalysis = validateAnalysisData(analysisData);
+                cacheAnalysis(fileId, code, validatedAnalysis);
+                return validatedAnalysis;
+            }
+
+            const jsonContent = jsonMatch[1];
+            const analysisData = JSON.parse(jsonContent);
+            const validatedAnalysis = validateAnalysisData(analysisData);
+            cacheAnalysis(fileId, code, validatedAnalysis);
+            return validatedAnalysis;
+        } catch (parseError) {
+            console.error('Failed to parse GROQ API response:', parseError);
+            console.log('Raw content:', content); // Для отладки
+            return DEFAULT_ANALYSIS;
+        }
 
     } catch (error) {
         console.error('GROQ API Error:', error);
-        throw error;
+        return DEFAULT_ANALYSIS;
     }
 }
 
 function validateAnalysisData(data: any): CodeAnalysisResult {
-    // Базовая валидация структуры данных
-    if (!data || typeof data !== 'object') {
-        throw new Error('Invalid analysis data structure');
-    }
+    // Улучшенная валидация с fallback значениями
+    const metrics = {
+        readability: Number(data?.metrics?.readability) || DEFAULT_ANALYSIS.metrics.readability,
+        complexity: Number(data?.metrics?.complexity) || DEFAULT_ANALYSIS.metrics.complexity,
+        performance: Number(data?.metrics?.performance) || DEFAULT_ANALYSIS.metrics.performance,
+        security: Number(data?.metrics?.security) || DEFAULT_ANALYSIS.metrics.security
+    };
 
-    // Проверяем наличие необходимых полей
-    if (!data.metrics || !data.explanations || !Array.isArray(data.suggestions)) {
-        throw new Error('Missing required fields in analysis data');
-    }
+    const explanations = {
+        readability: data?.explanations?.readability || DEFAULT_ANALYSIS.explanations.readability,
+        complexity: data?.explanations?.complexity || DEFAULT_ANALYSIS.explanations.complexity,
+        performance: data?.explanations?.performance || DEFAULT_ANALYSIS.explanations.performance,
+        security: data?.explanations?.security || DEFAULT_ANALYSIS.explanations.security
+    };
 
-    return data as CodeAnalysisResult;
+    const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+
+    return {
+        metrics,
+        explanations,
+        suggestions
+    };
 }

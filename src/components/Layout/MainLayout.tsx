@@ -52,23 +52,24 @@ export default function MainLayout({
 
     const [modifiedFiles, setModifiedFiles] = React.useState<Set<string>>(new Set())
 
-    // Используем единое состояние для анализа
+    // Используем единое состояние для анализа с корректными начальными значениями
     const [currentAnalysis, setCurrentAnalysis] = useState<CodeAnalysisResult>(() => {
         const savedAnalysis = localStorage.getItem(`analysis_${currentFile?.id}`);
         return savedAnalysis ? JSON.parse(savedAnalysis) : {
             metrics: {
-                readability: 70,
-                complexity: 70,
-                performance: 70,
-                security: 70
+                readability: 100,
+                complexity: 100,
+                performance: 100,
+                security: 100
             },
             explanations: {
-                readability: { score: 70, strengths: [], improvements: [] },
-                complexity: { score: 70, strengths: [], improvements: [] },
-                performance: { score: 70, strengths: [], improvements: [] },
-                security: { score: 70, strengths: [], improvements: [] }
+                readability: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
+                complexity: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
+                performance: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
+                security: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] }
             },
-            suggestions: []
+            suggestions: [],
+            isInitialState: true // Добавляем флаг для отслеживания начального состояния
         };
     });
 
@@ -83,28 +84,44 @@ export default function MainLayout({
         }
     };
 
-    // Эффект для инициализации анализа при смене файла
+    // Обновляем эффект для правильной инициализации анализа
     React.useEffect(() => {
         async function initializeAnalysis() {
             if (!currentFile) return;
 
-            try {
-                const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
-                if (cachedAnalysis) {
-                    setCurrentAnalysis(cachedAnalysis);
-                    return;
-                }
+            // Если это не начальное состояние и есть кэш - используем его
+            const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
+            if (cachedAnalysis) {
+                setCurrentAnalysis(cachedAnalysis);
+                return;
+            }
 
-                const analysis = await analyzeCode(currentFile.content, currentFile.id);
-                setCurrentAnalysis(analysis);
-                localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(analysis));
-            } catch (error) {
-                console.error('Failed to initialize analysis:', error);
+            // Если это начальное состояние или нет кэша - делаем анализ
+            if (currentAnalysis.isInitialState || !cachedAnalysis) {
+                try {
+                    const analysis = await analyzeCode(currentFile.content, currentFile.id);
+                    if (analysis) {
+                        const updatedAnalysis = {
+                            ...analysis,
+                            isInitialState: false
+                        };
+                        setCurrentAnalysis(updatedAnalysis);
+                        localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(updatedAnalysis));
+                    }
+                } catch (error) {
+                    console.error('Analysis failed:', error);
+                    // В случае ошибки сохраняем текущее состояние, но убираем флаг начального состояния
+                    setCurrentAnalysis(prev => ({
+                        ...prev,
+                        isInitialState: false,
+                        error: true
+                    }));
+                }
             }
         }
 
         initializeAnalysis();
-    }, [currentFile?.id]);
+    }, [currentFile?.id, currentFile?.content]);
 
     const handleFileSelect = React.useCallback(async (file: CurrentFile) => {
         setCurrentFile(file);

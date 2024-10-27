@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: '/project8/',
+  base: command === 'serve' ? '/' : '/project8/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -15,25 +15,23 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    // Важно: правильная обработка путей для assets
     rollupOptions: {
       output: {
-        // Убеждаемся что все ассеты будут с правильными путями
         entryFileNames: `assets/[name].[hash].js`,
         chunkFileNames: `assets/[name].[hash].js`,
         assetFileNames: `assets/[name].[hash].[ext]`
       }
     },
-    // Добавляем настройки для модулей
     modulePreload: {
       polyfill: true
     },
-    // Убеждаемся что все ассеты обрабатываются правильно
-    assetsInlineLimit: 0,
-    sourcemap: true
+    sourcemap: true,
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 500
   },
-  envPrefix: 'VITE_',
   server: {
-    cors: true
+    cors: true,
+    port: 5173,
+    strictPort: true
   }
-})
+}))

@@ -28,6 +28,8 @@ export interface CodeAnalysisResult {
     metrics: CodeMetrics
     explanations: CodeExplanations
     suggestions: CodeSuggestion[]
+    isInitialState?: boolean
+    error?: boolean
 }
 
 export interface AnalysisCache {

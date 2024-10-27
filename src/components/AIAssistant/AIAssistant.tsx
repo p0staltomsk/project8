@@ -1,11 +1,12 @@
 import { BaseProps } from '@/types'
 import { X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CodeSuggestion, CodeExplanations, CodeMetrics } from '@/types/codeAnalysis'
 import { useMetricsState } from './hooks/useMetricsState'
 import { useSuggestionsState } from './hooks/useSuggestionsState'
 import { MetricsSection } from './components/MetricsSection'
 import { SuggestionsSection } from './components/SuggestionsSection'
+import { Trophy } from 'lucide-react'
 
 interface AIAssistantProps extends BaseProps {
     isOpen: boolean
@@ -47,15 +48,23 @@ export default function AIAssistant({
         toggleFilter 
     } = useSuggestionsState(initialSuggestions);
 
+    // Проверяем, является ли код "идеальным"
+    const isPerfectCode = useCallback(() => {
+        const hasNoSuggestions = suggestionsState.items.length === 0;
+        const hasHighMetrics = Object.values(metricsState.values).every(
+            (value: number) => value >= 90
+        );
+        return hasNoSuggestions && hasHighMetrics;
+    }, [suggestionsState.items, metricsState.values]);
+
     // Добавляем эффект для установки isReady
     useEffect(() => {
-        // Устанавливаем isReady в true после короткой задержки
         const timer = setTimeout(() => {
             setIsReady(true);
-        }, 500); // Уменьшаем время загрузки до 500мс
+        }, 500);
 
         return () => clearTimeout(timer);
-    }, []); // Запускаем только при монтировании
+    }, []);
 
     // Обновляем isReady при изменении данных
     useEffect(() => {
@@ -63,15 +72,6 @@ export default function AIAssistant({
             setIsReady(true);
         }
     }, [initialMetrics, initialSuggestions]);
-
-    // Функция для проверки идеального кода
-    const isPerfectCode = () => {
-        return suggestionsState.items.length === 0 && 
-               Object.values(metricsState.values).every((value: number) => value >= 90);
-    };
-
-    // Отфильтрованные suggestions
-    const filteredSuggestions = filterSuggestions(suggestionsState.items);
 
     return (
         <div className={`h-full bg-white dark:bg-gray-800 border-l 
@@ -96,13 +96,29 @@ export default function AIAssistant({
                     isLoading={!isReady || metricsState.isLoading}
                 />
 
-                <SuggestionsSection 
-                    suggestions={filteredSuggestions}
-                    isLoading={!isReady}
-                    filters={suggestionsState.filters}
-                    onToggleFilter={toggleFilter}
-                    isPerfectCode={isPerfectCode()}
-                />
+                {!isPerfectCode() && (
+                    <SuggestionsSection 
+                        suggestions={filterSuggestions(suggestionsState.items)}
+                        isLoading={!isReady}
+                        filters={suggestionsState.filters}
+                        onToggleFilter={toggleFilter}
+                        isPerfectCode={isPerfectCode()}
+                    />
+                )}
+
+                {isPerfectCode() && isReady && (
+                    <div className="flex flex-col items-center justify-center p-6 space-y-4 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
+                        <Trophy className="w-16 h-16 text-yellow-400 animate-pulse" />
+                        <div className="text-center">
+                            <h4 className="text-lg font-bold text-green-500 dark:text-green-400 mb-2">
+                                Превосходный код!
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Код соответствует всем стандартам качества
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
