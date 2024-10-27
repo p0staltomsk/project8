@@ -15,6 +15,23 @@ interface AIAssistantProps extends BaseProps {
     explanations: CodeExplanations
 }
 
+/**
+ * TODO: Critical Fixes
+ * 1. Metrics Initialization:
+ *    - Remove default 70% values
+ *    - Add proper loading states with skeletons
+ *    - Implement smooth transitions only for updates
+ * 
+ * 2. Explanations State:
+ *    - Add persistent state management
+ *    - Store expanded/collapsed state
+ *    - Implement proper transitions
+ * 
+ * 3. Layout:
+ *    - Fix scrollbar issues
+ *    - Implement custom scrollbar
+ *    - Ensure consistent metrics display
+ */
 export default function AIAssistant({ 
     isOpen, 
     toggleAssistant, 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { MetricExplanation } from '@/types/codeAnalysis';  // Добавляем импорт типа
+import { useAnalysisStore } from '@/store/analysisStore';
 
 interface MetricBarProps {
     value: number;
@@ -42,17 +43,31 @@ function getMetricColor(value: number, type: string): string {
 }
 
 export default function MetricBar({ value, label, type = 'readability', explanation }: MetricBarProps) {
-    const [showDetails, setShowDetails] = useState(false);
+    const { expandedMetrics, toggleMetricExpansion } = useAnalysisStore();
+    const isExpanded = expandedMetrics.includes(label);
     const colorClass = getMetricColor(value, type);
     
     // Добавляем безопасную проверку
     const hasDetails = explanation && 
                       (explanation.strengths.length > 0 || explanation.improvements.length > 0);
     
+    // Добавляем состояние для анимации
+    const [isAnimating, setIsAnimating] = useState(false)
+    const prevValue = useRef(value)
+    
+    useEffect(() => {
+        if (prevValue.current !== value) {
+            setIsAnimating(true)
+            const timer = setTimeout(() => setIsAnimating(false), 600)
+            prevValue.current = value
+            return () => clearTimeout(timer)
+        }
+    }, [value])
+
     return (
         <div className="mb-4">
             <div 
-                onClick={() => hasDetails && setShowDetails(!showDetails)}
+                onClick={() => toggleMetricExpansion(label)}
                 className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded p-2 transition-all ${
                     hasDetails ? 'group' : ''
                 }`}
@@ -64,19 +79,26 @@ export default function MetricBar({ value, label, type = 'readability', explanat
                             <ChevronDown 
                                 size={16} 
                                 className={`text-gray-400 transition-transform duration-200 ${
-                                    showDetails ? 'rotate-180' : ''
+                                    isExpanded ? 'rotate-180' : ''
                                 } ${hasDetails ? 'opacity-100' : 'opacity-0'}`}
                             />
                         )}
                     </div>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{value}%</span>
+                    <span className={`font-semibold text-gray-800 dark:text-gray-200 transition-opacity duration-300 ${
+                        isAnimating ? 'opacity-0' : 'opacity-100'
+                    }`}>
+                        {value}%
+                    </span>
                 </div>
 
                 <div className="relative w-full">
                     <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
                         <div 
                             className={`h-3 rounded-full transition-all duration-500 ease-out ${colorClass}`}
-                            style={{ width: `${value}%` }}
+                            style={{ 
+                                width: `${value}%`,
+                                transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
                             role="progressbar"
                             aria-valuenow={value}
                             aria-valuemin={0}
@@ -86,7 +108,7 @@ export default function MetricBar({ value, label, type = 'readability', explanat
                 </div>
             </div>
             
-            {showDetails && hasDetails && (
+            {isExpanded && hasDetails && (
                 <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700">
                     {explanation.strengths.length > 0 && (
                         <div className="mb-2">

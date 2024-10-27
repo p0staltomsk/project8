@@ -1,10 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { BaseProps } from '@/types'
 import Editor, { Monaco, OnMount } from '@monaco-editor/react'
-import { useCodeAnalysis } from './useCodeAnalysis'
-import axios from 'axios'
-import type { editor, IRange } from 'monaco-editor'
-import { refactorCode } from '../../services/aiRefactor'
+import type { editor } from 'monaco-editor'
 import { analyzeCode, getCachedAnalysis } from '../../services/codeAnalysis'
 import type { CodeAnalysisResult, CodeSuggestion } from '@/types/codeAnalysis'
 import * as monaco from 'monaco-editor'
@@ -12,16 +9,21 @@ import ReactDOM from 'react-dom/client'
 import SubscriptionPopup from '../Popup/subscription'
 
 /**
- * TODO: 
+ * TODO: Critical Fixes
  * 1. TypeScript Issues Persistence:
- *    - Сохранять TypeScript маркеры при анализе кода
- *    - Синхронизировать маркеры с Monaco Editor
- *    - Предотвратить исчезновение TypeScript issues при сохранении
+ *    - Prevent markers cleanup during analysis
+ *    - Implement proper state management
+ *    - Merge with AI suggestions correctly
  * 
- * 2. Analysis State Management:
- *    - Улучшить механизм обновления состояния анализа
- *    - Добавить проверку изменений кода в реальном времени
- *    - Исправить проблему с пропаданием AI suggestions
+ * 2. Save Action Discoverability:
+ *    - Add visible save button
+ *    - Implement save indicator
+ *    - Show analysis trigger hint
+ * 
+ * 3. Analysis State Management:
+ *    - Improve state updates
+ *    - Add proper loading states
+ *    - Fix suggestions persistence
  */
 
 interface EditorProps extends BaseProps {
@@ -38,16 +40,16 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
   const [analysis, setAnalysis] = useState<CodeAnalysisResult>({
     metrics: {
-        readability: 70,
-        complexity: 70,
-        performance: 70,
-        security: 70  // Добавляем security
+        readability: 0,
+        complexity: 0,
+        performance: 0,
+        security: 0
     },
     explanations: {
-        readability: { score: 70, strengths: [], improvements: [] },
-        complexity: { score: 70, strengths: [], improvements: [] },
-        performance: { score: 70, strengths: [], improvements: [] },
-        security: { score: 70, strengths: [], improvements: [] }
+        readability: { score: 0, strengths: [], improvements: [] },
+        complexity: { score: 0, strengths: [], improvements: [] },
+        performance: { score: 0, strengths: [], improvements: [] },
+        security: { score: 0, strengths: [], improvements: [] }
     },
     suggestions: []
   })
@@ -71,26 +73,21 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
   useEffect(() => {
     if (currentFile) {
         setCode(currentFile.content);
-        // Сбрасываем TypeScript маркеры при смене файла
         setTypescriptMarkers([]);
-        // Сбрасываем анализ
-        setAnalysis({
-            metrics: {
-                readability: 70,
-                complexity: 70,
-                performance: 70,
-                security: 70  // Добавляем security
-            },
-            explanations: {
-                readability: { score: 70, strengths: [], improvements: [] },
-                complexity: { score: 70, strengths: [], improvements: [] },
-                performance: { score: 70, strengths: [], improvements: [] },
-                security: { score: 70, strengths: [], improvements: [] }
-            },
-            suggestions: []
-        });
+        
+        // Показываем состояние загрузки вместо дефолтных значений
+        setAnalysis(prev => ({
+            ...prev,
+            isLoading: true
+        }));
+
+        // Пытаемся загрузить кэшированный анализ
+        const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
+        if (cachedAnalysis) {
+            setAnalysis(cachedAnalysis);
+        }
     }
-  }, [currentFile?.id]); // Завсимость от ID файла
+  }, [currentFile?.id]);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -242,11 +239,9 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         document.body.appendChild(notification);
 
         try {
-            // Получаем новый анализ от API
             const newAnalysis = await analyzeCode(code, currentFile.id);
-            console.log('Received analysis:', newAnalysis); // Отладка
-
-            // Используем кешированные TypeScript маркеры
+            
+            // В случае успешного анализа используем полученные данные
             const combinedSuggestions = [
                 ...typescriptMarkers,
                 ...newAnalysis.suggestions.filter(suggestion => 
@@ -255,61 +250,52 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
                         suggestion.message.includes(marker.message.replace(/\[.*?\]\s/, ''))
                     )
                 )
-            ].sort((a, b) => {
-                if (a.line !== b.line) return a.line - b.line;
-                const severityOrder = { error: 0, warning: 1, info: 2 };
-                return severityOrder[a.severity] - severityOrder[b.severity];
-            });
+            ].sort((a, b) => a.line - b.line);
 
-            // ВАЖНО: Сохраняем все поля из newAnalysis
             const updatedAnalysis = {
                 metrics: newAnalysis.metrics,
-                explanations: newAnalysis.explanations, // Сохраняем explanations
-                suggestions: combinedSuggestions
+                explanations: newAnalysis.explanations,
+                suggestions: combinedSuggestions,
+                isLoading: false
             };
-
-            console.log('Updated analysis:', updatedAnalysis); // Отладка
 
             setAnalysis(updatedAnalysis);
             onAnalysisChange?.(updatedAnalysis);
-
-            // Сохраняем файл
             onSave?.(code);
 
             notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
             notification.textContent = 'File saved and analyzed!';
             setTimeout(() => notification.remove(), 2000);
 
-            console.group('Save Analysis Update:');
-            console.log('TypeScript markers (cached):', typescriptMarkers);
-            console.log('AI suggestions:', newAnalysis.suggestions);
-            console.log('Combined suggestions:', combinedSuggestions);
-            console.groupEnd();
-
         } catch (analysisError) {
             console.error('Analysis failed:', analysisError);
             
-            // В случае ошибки анализа используем только TypeScript маркеры
-            const fallbackAnalysis: CodeAnalysisResult = {
+            // В случае ошибки анализа показываем только TypeScript маркеры
+            // и индикатор ошибки вместо дефолтных значений
+            const fallbackAnalysis = {
                 metrics: {
-                    readability: 70,
-                    complexity: 70,
-                    performance: 70,
-                    security: 70  // Добавляем security
+                    readability: 0,
+                    complexity: 0,
+                    performance: 0,
+                    security: 0
                 },
                 explanations: {
-                    readability: { score: 70, strengths: [], improvements: [] },
-                    complexity: { score: 70, strengths: [], improvements: [] },
-                    performance: { score: 70, strengths: [], improvements: [] },
-                    security: { score: 70, strengths: [], improvements: [] }
+                    readability: { score: 0, strengths: [], improvements: [] },
+                    complexity: { score: 0, strengths: [], improvements: [] },
+                    performance: { score: 0, strengths: [], improvements: [] },
+                    security: { score: 0, strengths: [], improvements: [] }
                 },
-                suggestions: typescriptMarkers
+                suggestions: typescriptMarkers,
+                error: true
             };
 
             setAnalysis(fallbackAnalysis);
             onAnalysisChange?.(fallbackAnalysis);
-            
             onSave?.(code);
+
+            notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            notification.textContent = 'Analysis failed. Showing TypeScript issues only.';
+            setTimeout(() => notification.remove(), 3000);
         }
 
     } catch (error) {

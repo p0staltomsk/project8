@@ -1,55 +1,28 @@
 // Управление состоянием метрик
 
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { CodeMetrics } from '@/types/codeAnalysis';
+import { useAnalysisStore } from '@/store/analysisStore';
 
-interface MetricsState {
-    values: CodeMetrics;
-    isLoading: boolean;
-    lastUpdated: number;
-    source: 'cache' | 'live' | 'default';
-}
+export function useMetricsState(initialMetrics: CodeMetrics | undefined) {
+    const { metrics, isLoading, setMetrics, setLoading } = useAnalysisStore();
 
-const defaultMetrics: CodeMetrics = {
-    readability: 0,
-    complexity: 0,
-    performance: 0,
-    security: 0
-};
-
-export function useMetricsState(initialMetrics?: CodeMetrics) {
-    const [metricsState, setMetricsState] = useState<MetricsState>({
-        values: initialMetrics || defaultMetrics,
-        isLoading: true,
-        lastUpdated: 0,
-        source: 'default'
-    });
-
-    const updateMetrics = useCallback((newMetrics: CodeMetrics, source: MetricsState['source']) => {
-        setMetricsState(prev => ({
-            values: newMetrics,
-            isLoading: false,
-            lastUpdated: Date.now(),
-            source
-        }));
-    }, []);
-
-    // Обработка изменений метрик
     useEffect(() => {
         if (initialMetrics) {
-            updateMetrics(initialMetrics, 'live');
+            const hasRealValues = Object.values(initialMetrics).some(value => value > 0);
+            
+            if (hasRealValues) {
+                setLoading(false);
+                setMetrics(initialMetrics);
+            }
         }
-    }, [initialMetrics, updateMetrics]);
+    }, [initialMetrics, setMetrics, setLoading]);
 
-    // Кэширование состояния
-    useEffect(() => {
-        if (metricsState.source === 'live') {
-            localStorage.setItem('metrics-cache', JSON.stringify({
-                values: metricsState.values,
-                timestamp: metricsState.lastUpdated
-            }));
-        }
-    }, [metricsState]);
-
-    return { metricsState, updateMetrics };
+    return {
+        metricsState: {
+            values: metrics,
+            isLoading
+        },
+        updateMetrics: setMetrics
+    };
 }

@@ -123,32 +123,16 @@ npm run test:coverage
   - [ ] Improve analysis update indicators
 
 ### 📋 Planned
-- [ ] Prettier integration
-- [ ] Git integration
-- [ ] Custom analysis rules editor
-- [ ] Team dashboard
-- [ ] Export/Import functionality
-- [ ] Code review automation
-- [ ] Performance profiling tools
-- [ ] Custom plugin system
 - [ ] Testing Infrastructure
   - [ ] Unit Tests
     - [ ] AIAssistant component tests
     - [ ] Code analysis service tests
-    - [ ] File system service tests
-    - [ ] GROQ API integration tests
   - [ ] Integration Tests
     - [ ] Editor-AIAssistant interaction
-    - [ ] File system-Editor integration
     - [ ] Analysis pipeline tests
-  - [ ] E2E Tests
-    - [ ] Complete user workflows
-    - [ ] Performance testing
-    - [ ] Error handling scenarios
   - [ ] Test Coverage Goals
     - [ ] Core components: 90%+
     - [ ] Services: 85%+
-    - [ ] Utils: 80%+
 
 ## 🎯 Next Steps Priority
 
@@ -188,17 +172,11 @@ npm run test:coverage
 src/
 ├── components/
 │   ├── Editor/
-│   │   ├── core/
-│   │   │   ├── EditorCore.tsx
-│   │   │   └── MonacoConfig.ts
-│   │   ├── hooks/
-│   │   │   ├── useMonacoSetup.ts
-│   │   │   ├── useEditorState.ts
-│   │   │   └── useEditorActions.ts
-│   │   └── utils/
-│   │       ├── markers.ts
-│   │       └── monacoTheme.ts
+│   │   └── Editor.tsx
 │   ├── AIAssistant/
+│   │   ├── AIAssistant.tsx
+│   │   ├── MetricBar.tsx
+│   │   ├── MetricBar.test.tsx
 │   │   ├── components/
 │   │   │   ├── MetricsSection.tsx
 │   │   │   └── SuggestionsSection.tsx
@@ -206,12 +184,21 @@ src/
 │   │       ├── useMetricsState.ts
 │   │       └── useSuggestionsState.ts
 │   ├── Layout/
-│   └── Sidebar/
+│   │   └── MainLayout.tsx
+│   ├── Popup/
+│   │   └── subscription.tsx
+│   ├── Settings/
+│   │   └── SettingsPanel.tsx
+│   ├── Sidebar/
+│   │   └── Sidebar.tsx
+│   ├── Toolbar/
+│   │   └── Toolbar.tsx
+│   └── store/
+│       └── analysisStore.ts
 ├── services/
 │   ├── codeAnalysis/
 │   │   ├── api.ts
 │   │   ├── cache.ts
-│   │   ├── validation.ts
 │   │   └── types.ts
 │   └── fileSystem.ts
 └── types/
@@ -244,3 +231,59 @@ MIT License
 ### Made with ❤️ by developers, for developers
 
 </div>
+
+### 🏗️ Critical Issues (Alpha Testing)
+
+#### 1. Metrics Initialization Bug (High Priority)
+- **Issue**: All metrics reset to 70% after initial load with animation
+- **Impact**: Poor UX, misleading metrics display
+- **Fix Plan**:
+  - [ ] Refactor metrics initialization in `useMetricsState`
+  - [ ] Remove default 70% values
+  - [ ] Implement proper loading states
+  - [ ] Add smooth transitions only for actual updates
+
+#### 2. Explanations Inconsistency (High Priority)
+- **Issue**: Unstable explanations visibility and state
+- **Impact**: Poor UX, confusing interface
+- **Fix Plan**:
+  - [ ] Implement persistent explanation states
+  - [ ] Add proper state management for expanded/collapsed states
+  - [ ] Store user preferences for explanations visibility
+  - [ ] Add smooth transitions for state changes
+
+#### 3. TypeScript Issues Persistence (High Priority)
+- **Issue**: TypeScript issues disappear after AI analysis
+- **Impact**: Loss of important development feedback
+- **Fix Plan**:
+  - [ ] Implement proper markers persistence
+  - [ ] Merge TypeScript issues with AI suggestions
+  - [ ] Add proper state management for editor markers
+  - [ ] Prevent markers cleanup during analysis
+
+#### 4. Scrollbar Layout Issues (Medium Priority)
+- **Issue**: System scrollbar causes layout shifts
+- **Impact**: Poor UX, inconsistent interface
+- **Fix Plan**:
+  - [ ] Implement custom scrollbar styles
+  - [ ] Fix layout calculations
+  - [ ] Add proper overflow handling
+  - [ ] Ensure consistent metrics display
+
+#### 5. Save Action Discoverability (Medium Priority)
+- **Issue**: Save action (Ctrl+S) not obvious for analysis
+- **Impact**: Users might miss important functionality
+- **Fix Plan**:
+  - [ ] Add visible save button
+  - [ ] Implement save indicator
+  - [ ] Add tooltip explaining analysis trigger
+  - [ ] Show keyboard shortcut hint
+
+### 🚀 Updated Project Status
+
+#### Current Sprint Focus
+1. Fix critical metrics initialization
+2. Implement proper state management
+3. Fix TypeScript issues persistence
+4. Improve UI/UX consistency
+5. Enhance user guidance
