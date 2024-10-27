@@ -182,18 +182,35 @@ For detailed setup instructions, see our [Development Guide](DEVELOPMENT.md).
 src/
 ├── components/
 │   ├── Editor/
+│   │   ├── core/
+│   │   │   ├── EditorCore.tsx
+│   │   │   └── MonacoConfig.ts
+│   │   ├── hooks/
+│   │   │   ├── useMonacoSetup.ts
+│   │   │   ├── useEditorState.ts
+│   │   │   └── useEditorActions.ts
+│   │   └── utils/
+│   │       ├── markers.ts
+│   │       └── monacoTheme.ts
 │   ├── AIAssistant/
-│   │   ├── AIAssistant.tsx
-│   │   ├── MetricBar.tsx
-│   │   ├── MetricBar.test.tsx      # Component test coverage
-│   │   └── AIAssistant.test.tsx    # TODO: Implement tests
+│   │   ├── components/
+│   │   │   ├── MetricsSection.tsx
+│   │   │   └── SuggestionsSection.tsx
+│   │   └── hooks/
+│   │       ├── useMetricsState.ts
+│   │       └── useSuggestionsState.ts
 │   ├── Layout/
 │   └── Sidebar/
-├── tests/
-│   ├── setup/
-│   ├── mocks/
-│   └── utils/
-// ... (остальная структура)
+├── services/
+│   ├── codeAnalysis/
+│   │   ├── api.ts
+│   │   ├── cache.ts
+│   │   ├── validation.ts
+│   │   └── types.ts
+│   └── fileSystem.ts
+└── types/
+    └── codeAnalysis.ts
+```
 
 ## 🤝 Contributing
 
