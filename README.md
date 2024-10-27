@@ -217,4 +217,8 @@ MIT License - see the [LICENSE](LICENSE) file for details
 
 ---
 
-<p align="center">Made with ❤️ by developers, for developers</p>
+<div align="center">
+
+### Made with ❤️ by developers, for developers
+
+</div>
