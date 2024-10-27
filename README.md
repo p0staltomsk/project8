@@ -2,6 +2,41 @@
 
 Modern code editor with AI-powered code analysis and real-time quality metrics, powered by GROQ API.
 
+## 🚀 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Add your GROQ API key to .env
+echo "VITE_GROQ_API_KEY=your_key_here" > .env
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+- GROQ API key
+
+### Development Setup
+1. Clone the repository
+2. Install dependencies
+3. Set up your environment variables
+4. Start the development server
+
+For detailed setup instructions, see our [Development Guide](DEVELOPMENT.md).
+
 ## ✨ Features
 
 ### 🎯 Core Features
@@ -183,38 +218,3 @@ MIT License - see the [LICENSE](LICENSE) file for details
 ---
 
 <p align="center">Made with ❤️ by developers, for developers</p>
-
-## 🚀 Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Add your GROQ API key to .env
-echo "VITE_GROQ_API_KEY=your_key_here" > .env
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-### Prerequisites
-- Node.js 16+
-- npm or yarn
-- GROQ API key
-
-### Development Setup
-1. Clone the repository
-2. Install dependencies
-3. Set up your environment variables
-4. Start the development server
-
-For detailed setup instructions, see our [Development Guide](DEVELOPMENT.md).

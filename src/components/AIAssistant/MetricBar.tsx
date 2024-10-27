@@ -45,7 +45,9 @@ export default function MetricBar({ value, label, type = 'readability', explanat
     const [showDetails, setShowDetails] = useState(false);
     const colorClass = getMetricColor(value, type);
     
-    const hasDetails = explanation.strengths.length > 0 || explanation.improvements.length > 0;
+    // Добавляем безопасную проверку
+    const hasDetails = explanation && 
+                      (explanation.strengths.length > 0 || explanation.improvements.length > 0);
     
     return (
         <div className="mb-4">
