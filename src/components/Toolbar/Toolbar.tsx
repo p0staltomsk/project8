@@ -1,6 +1,6 @@
 import React from 'react'
 import { BaseProps } from '@/types'
-import { Search, Bookmark, LayoutGrid, Settings, Moon, Sun, Menu, Upload } from 'lucide-react'
+import { Search, Settings, Moon, Sun, Menu, Upload } from 'lucide-react'
 
 interface ToolbarProps extends BaseProps {
     toggleSidebar: () => void
