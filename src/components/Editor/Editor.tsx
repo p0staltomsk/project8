@@ -1,29 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useCallback } from 'react'
 import { BaseProps } from '@/types'
 import Editor, { Monaco, OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import type { CodeAnalysisResult, CodeSuggestion } from '@/types/codeAnalysis'
-import * as monaco from 'monaco-editor'
 import ReactDOM from 'react-dom/client'
 import SubscriptionPopup from '../Popup/subscription'
-
-/**
- * TODO: Critical Fixes
- * 1. TypeScript Issues ✅ Решено
- *    - [x] Prevent markers cleanup during analysis
- *    - [x] Implement proper state management
- *    - [x] Merge with AI suggestions correctly
- * 
- * 2. Save Action 🟡 В процессе
- *    - [ ] Add visible save button
- *    - [x] Implement save indicator
- *    - [x] Show analysis trigger hint
- * 
- * 3. Analysis State ✅ Решено
- *    - [x] Improve state updates
- *    - [x] Add proper loading states
- *    - [x] Fix suggestions persistence
- */
 
 interface EditorProps extends BaseProps {
   isDarkMode: boolean
@@ -31,7 +12,7 @@ interface EditorProps extends BaseProps {
   onChange?: (code: string) => void
   currentFile: { id: string; name: string; content: string } | null
   onAnalysisChange?: (analysis: CodeAnalysisResult) => void
-  editorRef?: React.MutableRefObject<editor.IStandaloneCodeEditor | null> // Добавляем ref
+  editorRef?: React.MutableRefObject<editor.IStandaloneCodeEditor | null>
 }
 
 export default function CodeEditor({ 
@@ -40,7 +21,7 @@ export default function CodeEditor({
   onChange, 
   currentFile, 
   onAnalysisChange,
-  editorRef: externalEditorRef // Получаем внешний ref
+  editorRef: externalEditorRef 
 }: EditorProps) {
   const internalEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -50,77 +31,57 @@ export default function CodeEditor({
   
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
   
-  // Используем анализ в коде
-  const [analysis, setAnalysis] = useState<CodeAnalysisResult>({
-      metrics: {
-          readability: 0,
-          complexity: 0,
-          performance: 0,
-          security: 0
-      },
-      explanations: {
-          readability: { score: 0, strengths: [], improvements: [] },
-          complexity: { score: 0, strengths: [], improvements: [] },
-          performance: { score: 0, strengths: [], improvements: [] },
-          security: { score: 0, strengths: [], improvements: [] }
-      },
-      suggestions: [],
-      isInitialState: true
-  });
-
-  // Используем маркеры в коде
-  const [typescriptMarkers, setTypescriptMarkers] = useState<CodeSuggestion[]>([]);
-
   // Обновляем эффект для смены файла
   useEffect(() => {
       if (currentFile) {
           setCode(currentFile.content);
-          setTypescriptMarkers([]); // Очищаем маркеры
       }
   }, [currentFile?.id]);
+
+  // Обновляем обработчик маркеров
+  const handleMarkersChange = useCallback((editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
+    const model = editor.getModel();
+    if (!model) return;
+
+    const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+    const newMarkerSuggestions = markers
+        .filter(isRelevantMarker)
+        .map(markerToSuggestion);
+    
+    // Обновляем родительское состояние с TypeScript ошибками
+    onAnalysisChange?.({
+        metrics: {
+            readability: 0,
+            complexity: 0,
+            performance: 0,
+            security: 0
+        },
+        explanations: {
+            readability: { score: 0, strengths: [], improvements: [] },
+            complexity: { score: 0, strengths: [], improvements: [] },
+            performance: { score: 0, strengths: [], improvements: [] },
+            security: { score: 0, strengths: [], improvements: [] }
+        },
+        suggestions: newMarkerSuggestions,
+        isInitialState: true
+    });
+  }, [onAnalysisChange]);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Обрабатываем маркеры сразу и при изменениях
+    // Инициализируем маркеры при монтировании
+    handleMarkersChange(editor, monaco);
+
+    // Обрабатываем изменения маркеров
     monaco.editor.onDidChangeMarkers((uris) => {
         const model = editor.getModel();
         if (!model) return;
 
         if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
 
-        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
-        const newMarkerSuggestions = markers
-            .filter(isRelevantMarker)
-            .map(markerToSuggestion);
-        
-        setTypescriptMarkers(newMarkerSuggestions);
-
-        // Обновляем только локальное состояние
-        setAnalysis(prev => ({
-            ...prev,
-            suggestions: newMarkerSuggestions
-        }));
-        
-        // Обновляем родительское состояние только с TypeScript ошибками,
-        // сохраняя isInitialState
-        onAnalysisChange?.({
-            metrics: {
-                readability: 0,
-                complexity: 0,
-                performance: 0,
-                security: 0
-            },
-            explanations: {
-                readability: { score: 0, strengths: [], improvements: [] },
-                complexity: { score: 0, strengths: [], improvements: [] },
-                performance: { score: 0, strengths: [], improvements: [] },
-                security: { score: 0, strengths: [], improvements: [] }
-            },
-            suggestions: newMarkerSuggestions,
-            isInitialState: true  // Важно! Сохраняем флаг
-        });
+        handleMarkersChange(editor, monaco);
     });
 
     // Добавляем действие AI auto-fix
@@ -153,41 +114,12 @@ export default function CodeEditor({
     });
   };
 
-  // Добавляем использование analysis и typescriptMarkers
-  useEffect(() => {
-    if (analysis.suggestions.length > 0) {
-        console.debug('Current analysis suggestions:', analysis.suggestions);
-    }
-    if (typescriptMarkers.length > 0) {
-        console.debug('Current TypeScript markers:', typescriptMarkers);
-    }
-  }, [analysis.suggestions, typescriptMarkers]);
-
   // Обновим функцию isRelevantMarker, чтобы захватывать все ошибки TypeScript
   const isRelevantMarker = (marker: editor.IMarker) => {
     // Захватываем все маркеры с severity Error или Warning
-    return marker.severity === monaco.MarkerSeverity.Error || 
-           marker.severity === monaco.MarkerSeverity.Warning ||
-           marker.severity === monaco.MarkerSeverity.Info;
-  };
-
-  // Обновим функцию getMarkerTypePrefix для более точной категоизаи ошибок
-  const getMarkerTypePrefix = (code: string | undefined): string => {
-    const prefixes: Record<string, string> = {
-        '7027': '[Unreachable Code]',
-        '2365': '[Type Mismatch]',
-        '2322': '[Type Error]',
-        '2339': '[Missing Property]',
-        '2304': '[Missing Module]',
-        '1005': '[Missing Declaration]',
-        '2691': '[Import Error]',
-        '1128': '[Declaration Error]',
-        '2551': '[Syntax Error]',
-        // Добавляем все встреченные коды ошибок
-    };
-    
-    // Определяем тип ошибки по коду или возвращаем общий префикс
-    return code ? (prefixes[code] || '[TypeScript]') : '[TypeScript]';
+    return marker.severity === monacoRef.current?.MarkerSeverity.Error || 
+           marker.severity === monacoRef.current?.MarkerSeverity.Warning ||
+           marker.severity === monacoRef.current?.MarkerSeverity.Info;
   };
 
   // Обновим функцию markerToSuggestion для лучшей обработки сообщений
@@ -207,11 +139,30 @@ export default function CodeEditor({
     };
   };
 
+  // Обновим функцию getMarkerTypePrefix для более точной категоризации ошибок
+  const getMarkerTypePrefix = (code: string | undefined): string => {
+    const prefixes: Record<string, string> = {
+        '7027': '[Unreachable Code]',
+        '2365': '[Type Mismatch]',
+        '2322': '[Type Error]',
+        '2339': '[Missing Property]',
+        '2304': '[Missing Module]',
+        '1005': '[Missing Declaration]',
+        '2691': '[Import Error]',
+        '1128': '[Declaration Error]',
+        '2551': '[Syntax Error]',
+    };
+    
+    return code ? (prefixes[code] || '[TypeScript]') : '[TypeScript]';
+  };
+
   const markerSeverityToSuggestionSeverity = (severity: number): 'error' | 'warning' | 'info' => {
+    if (!monacoRef.current) return 'info';
+    
     switch (severity) {
-        case monaco.MarkerSeverity.Error:
+        case monacoRef.current.MarkerSeverity.Error:
             return 'error';
-        case monaco.MarkerSeverity.Warning:
+        case monacoRef.current.MarkerSeverity.Warning:
             return 'warning';
         default:
             return 'info';
@@ -235,7 +186,7 @@ export default function CodeEditor({
         notification.textContent = 'Analyzing code...';
         document.body.appendChild(notification);
 
-        // Вызываем колбэк сохранения и ждем результат
+        // Вызываем колбэк сохранения
         await onSave?.(code);
 
         notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
@@ -255,7 +206,6 @@ export default function CodeEditor({
   // Обработка Ctrl+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        // Проверяем все возможные варианты 'S' и 'ы'
         const isS = e.key.toLowerCase() === 's' || 
                    e.key.toLowerCase() === 'ы' || 
                    e.key === 'S' || 

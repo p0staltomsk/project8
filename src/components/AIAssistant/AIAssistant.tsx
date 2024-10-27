@@ -52,7 +52,7 @@ export default function AIAssistant({
         return Object.values(metricsState.values).some(value => value > 0);
     }, [metricsState.values]);
 
-    // Разделяем suggestions на типы сразу при получении
+    // Разделяем suggestions на типы
     const freeTierSuggestions = useMemo(() => suggestions.filter(s => 
         s.message.includes('[TypeScript]') || 
         s.message.includes('[Type Error]') ||
@@ -69,8 +69,28 @@ export default function AIAssistant({
 
     // AI suggestions - это все остальные предложения
     const aiSuggestions = useMemo(() => 
-        suggestions.filter(s => !freeTierSuggestions.includes(s))
-    , [suggestions, freeTierSuggestions]);
+        suggestions.filter(s => 
+            !s.message.includes('[TypeScript]') && 
+            !s.message.includes('[Type Error]') &&
+            !s.message.includes('[Type Mismatch]') &&
+            !s.message.includes('[Missing Property]') &&
+            !s.message.includes('[Unreachable Code]') &&
+            !s.message.includes('[Missing Module]') &&
+            !s.message.includes('[Missing Declaration]') &&
+            !s.message.includes('[Import Error]') &&
+            !s.message.includes('[Declaration Error]') &&
+            !s.message.includes('[Syntax Error]')
+        )
+    , [suggestions]);
+
+    // Добавляем логирование для отладки
+    useEffect(() => {
+        if (suggestions.length > 0) {
+            console.log('All suggestions:', suggestions);
+            console.log('Free tier suggestions:', freeTierSuggestions);
+            console.log('AI suggestions:', aiSuggestions);
+        }
+    }, [suggestions, freeTierSuggestions, aiSuggestions]);
 
     // Проверка идеального кода
     const isPerfectCode = useCallback(() => {

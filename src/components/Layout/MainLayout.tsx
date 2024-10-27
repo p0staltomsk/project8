@@ -68,7 +68,7 @@ export default function MainLayout({
         };
     });
 
-    // Добавляем эффект для сброса анализа при смене файла
+    // Добавляем эффект для сброса анализа при смене фаа
     useEffect(() => {
         setCurrentAnalysis({
             metrics: { readability: 0, complexity: 0, performance: 0, security: 0 },
@@ -85,30 +85,16 @@ export default function MainLayout({
 
     // Обновляем handleAnalysisChange
     const handleAnalysisChange = React.useCallback((analysis: CodeAnalysisResult) => {
-        // Если это TypeScript ошибки, сохраняем их отдельно
+        // Если это TypeScript ошибки, добавляем их к текущему состоянию
         if (analysis.isInitialState) {
-            const typeScriptErrors = analysis.suggestions.filter(s => 
-                s.message.includes('[TypeScript]') || 
-                s.message.includes('[Type Error]') ||
-                s.message.includes('[Type Mismatch]') ||
-                s.message.includes('[Missing Property]') ||
-                s.message.includes('[Unreachable Code]') ||
-                s.message.includes('[Missing Module]') ||
-                s.message.includes('[Missing Declaration]') ||
-                s.message.includes('[Import Error]') ||
-                s.message.includes('[Declaration Error]') ||
-                s.message.includes('[Syntax Error]')
-            );
-            
             setCurrentAnalysis(prev => ({
                 ...prev,
-                suggestions: typeScriptErrors,
-                isInitialState: true
+                suggestions: analysis.suggestions
             }));
             return;
         }
 
-        // Для результатов анализа - объединяем с существующими TypeScript ошибками
+        // Для результатов анализа - СОХРАНЯЕМ НАХУЙ TypeScript ошибки
         const updatedAnalysis = {
             ...analysis,
             suggestions: [
@@ -125,11 +111,9 @@ export default function MainLayout({
                     s.message.includes('[Syntax Error]')
                 ),
                 ...analysis.suggestions.filter(s => !s.message.includes('[TypeScript]'))
-            ],
-            isInitialState: false
+            ]
         };
 
-        console.log('Analysis updated:', updatedAnalysis);
         setCurrentAnalysis(updatedAnalysis);
         
         if (currentFile && !analysis.isInitialState) {
@@ -158,13 +142,13 @@ export default function MainLayout({
                 s.message.includes('[Declaration Error]') ||
                 s.message.includes('[Syntax Error]')
             );
-            
-            // Объединяем TypeScript ошбки с результатами анализа
+
+            // Объединяем TypeScript ошибки с результатами анализа
             const updatedAnalysis = {
                 ...analysis,
                 suggestions: [
-                    ...currentTypeScriptErrors, // Сначала TypeScript ошибки
-                    ...analysis.suggestions.filter(s => !s.message.includes('[TypeScript]')) // Потом остальные
+                    ...currentTypeScriptErrors,  // Сохраняем TypeScript ошибки
+                    ...analysis.suggestions      // Добавляем AI suggestions
                 ],
                 isInitialState: false
             };
