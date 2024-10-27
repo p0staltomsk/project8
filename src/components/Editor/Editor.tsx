@@ -9,20 +9,20 @@ import SubscriptionPopup from '../Popup/subscription'
 
 /**
  * TODO: Critical Fixes
- * 1. TypeScript Issues Persistence:
- *    - Prevent markers cleanup during analysis
- *    - Implement proper state management
- *    - Merge with AI suggestions correctly
+ * 1. TypeScript Issues ✅ Решено
+ *    - [x] Prevent markers cleanup during analysis
+ *    - [x] Implement proper state management
+ *    - [x] Merge with AI suggestions correctly
  * 
- * 2. Save Action Discoverability:
- *    - Add visible save button
- *    - Implement save indicator
- *    - Show analysis trigger hint
+ * 2. Save Action 🟡 В процессе
+ *    - [ ] Add visible save button
+ *    - [x] Implement save indicator
+ *    - [x] Show analysis trigger hint
  * 
- * 3. Analysis State Management:
- *    - Improve state updates
- *    - Add proper loading states
- *    - Fix suggestions persistence
+ * 3. Analysis State ✅ Решено
+ *    - [x] Improve state updates
+ *    - [x] Add proper loading states
+ *    - [x] Fix suggestions persistence
  */
 
 interface EditorProps extends BaseProps {

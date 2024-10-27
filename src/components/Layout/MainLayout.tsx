@@ -84,11 +84,34 @@ export default function MainLayout({
 
     // Обновляем handleAnalysisChange
     const handleAnalysisChange = React.useCallback((analysis: CodeAnalysisResult) => {
-        // Если это TypeScript ошибки, добавляем их к текущему состоянию
+        // Если это TypeScript ошибки, сохраняем их отдельно
         if (analysis.isInitialState) {
+            const typeScriptErrors = analysis.suggestions.filter(s => 
+                s.message.includes('[TypeScript]') || 
+                s.message.includes('[Type Error]') ||
+                s.message.includes('[Type Mismatch]') ||
+                s.message.includes('[Missing Property]') ||
+                s.message.includes('[Unreachable Code]') ||
+                s.message.includes('[Missing Module]') ||
+                s.message.includes('[Missing Declaration]') ||
+                s.message.includes('[Import Error]') ||
+                s.message.includes('[Declaration Error]') ||
+                s.message.includes('[Syntax Error]')
+            );
+            
             setCurrentAnalysis(prev => ({
                 ...prev,
-                suggestions: analysis.suggestions.filter(s => 
+                suggestions: typeScriptErrors,
+                isInitialState: true
+            }));
+            return;
+        }
+
+        // Для результатов анализа - объединяем с существующими TypeScript ошибками
+        const updatedAnalysis = {
+            ...analysis,
+            suggestions: [
+                ...currentAnalysis.suggestions.filter(s => 
                     s.message.includes('[TypeScript]') || 
                     s.message.includes('[Type Error]') ||
                     s.message.includes('[Type Mismatch]') ||
@@ -99,44 +122,19 @@ export default function MainLayout({
                     s.message.includes('[Import Error]') ||
                     s.message.includes('[Declaration Error]') ||
                     s.message.includes('[Syntax Error]')
-                )
-            }));
-            return;
-        }
-
-        // Для результатов анализа - сохраняем TypeScript ошибки
-        const currentTypeScriptErrors = currentAnalysis.suggestions.filter(s => 
-            s.message.includes('[TypeScript]') || 
-            s.message.includes('[Type Error]') ||
-            s.message.includes('[Type Mismatch]') ||
-            s.message.includes('[Missing Property]') ||
-            s.message.includes('[Unreachable Code]') ||
-            s.message.includes('[Missing Module]') ||
-            s.message.includes('[Missing Declaration]') ||
-            s.message.includes('[Import Error]') ||
-            s.message.includes('[Declaration Error]') ||
-            s.message.includes('[Syntax Error]')
-        );
-
-        const updatedAnalysis = {
-            ...analysis,
-            suggestions: [
-                ...currentTypeScriptErrors,
+                ),
                 ...analysis.suggestions.filter(s => !s.message.includes('[TypeScript]'))
-            ]
+            ],
+            isInitialState: false
         };
 
-        if (!analysis.isInitialState && 
-            JSON.stringify(updatedAnalysis) !== JSON.stringify(currentAnalysis)) {
-            console.log('Analysis updated:', updatedAnalysis);
-        }
-
+        console.log('Analysis updated:', updatedAnalysis);
         setCurrentAnalysis(updatedAnalysis);
         
         if (currentFile && !analysis.isInitialState) {
             localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(updatedAnalysis));
         }
-    }, [currentFile, currentAnalysis]);
+    }, [currentFile, currentAnalysis.suggestions]);
 
     // Анализ только по Ctrl+S
     const handleSave = React.useCallback(async (code: string) => {

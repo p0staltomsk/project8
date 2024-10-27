@@ -3,13 +3,16 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   plugins: [react()],
-  base: command === 'serve' ? '/' : '/project8/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  base: './', // Добавляем базовый путь
+  server: {
+    port: 5666
   },
   build: {
     outDir: 'dist',
@@ -17,21 +20,12 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        entryFileNames: `assets/[name].[hash].js`,
-        chunkFileNames: `assets/[name].[hash].js`,
-        assetFileNames: `assets/[name].[hash].[ext]`
+        manualChunks: undefined,
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
-    },
-    modulePreload: {
-      polyfill: true
-    },
-    sourcemap: true,
-    assetsInlineLimit: 4096,
-    chunkSizeWarningLimit: 500
+    }
   },
-  server: {
-    cors: true,
-    port: 5666,
-    strictPort: true
-  }
-}))
+  publicDir: 'public'
+})

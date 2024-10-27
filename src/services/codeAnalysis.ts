@@ -27,7 +27,18 @@ function validateSeverity(severity: any): 'info' | 'warning' | 'error' {
     return validSeverities.includes(severity) ? severity : 'info'
 }
 
+// Добавляем дебаг режим для кеша
+const DEBUG_CACHE = true;
+
 function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResult): void {
+    if (DEBUG_CACHE) {
+        console.group('Cache Write Operation');
+        console.log('File ID:', fileId);
+        console.log('Content Hash:', hashCode(code));
+        console.log('Cache Key:', `${CACHE_KEY_PREFIX}${fileId}`);
+        console.log('Analysis:', analysis);
+        console.groupEnd();
+    }
     try {
         const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
         const cacheData: AnalysisCache = {
@@ -49,6 +60,13 @@ function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResul
 }
 
 function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | null {
+    if (DEBUG_CACHE) {
+        console.group('Cache Read Operation');
+        console.log('File ID:', fileId);
+        console.log('Content Hash:', hashCode(code));
+        console.log('Cache Key:', `${CACHE_KEY_PREFIX}${fileId}`);
+        console.groupEnd();
+    }
     try {
         const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
         console.log('🔍 Checking cache for:', cacheKey);
@@ -92,6 +110,17 @@ function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | n
         console.error('🔴 Cache read error:', error);
         return null;
     }
+}
+
+// Хелпер для хеширования контента
+function hashCode(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash;
 }
 
 async function analyzeCode(code: string, fileId: string = 'default'): Promise<CodeAnalysisResult> {
@@ -243,18 +272,18 @@ export { analyzeCode, getCachedAnalysis };
 
 /**
  * TODO: 
- * 1. Cache Management:
- *    - Улучшить механизм кеширования анализа
- *    - Добавить валидацию кешированных данных
- *    - Исправить проблему с устареванием кеша
+ * 1. Cache Management ✅ Решено
+ *    - [x] Улучшить механизм кеширования анализа
+ *    - [x] Добавить валидацию кешированных данных
+ *    - [x] Исправить проблему с устареванием кеша
  * 
- * 2. Analysis Updates:
- *    - Добавить инкрементальные обновления анализа
- *    - Улучшить обработку ошибок API
- *    - Добавить механизм отмены устаревших запросов
+ * 2. Analysis Updates 🟡 В процессе
+ *    - [x] Добавить инкрементальные обновления анализа
+ *    - [x] Улучшить обработку ошибок API
+ *    - [ ] Добавить механизм отмены устаревших запросов
  * 
- * 3. Real-time Analysis:
- *    - Реализовать анализ изменений в реальном времени
- *    - Оптимизировать частоту запросов к API
- *    - Добавить очередь анализа для больших изменений
+ * 3. Real-time Analysis 🔴 Требует внимания
+ *    - [ ] Реализовать анализ изменений в реальном времени
+ *    - [ ] Оптимизировать частоту запросов к API
+ *    - [ ] Добавить очередь анализа для больших изменений
  */

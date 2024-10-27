@@ -185,6 +185,172 @@ export function validatePassword(password: string): {
                         parentId: '6'
                     }
                 ]
+            },
+            {
+                id: '9',
+                name: 'styles',
+                parentId: '1',
+                children: [
+                    {
+                        id: '10',
+                        name: 'theme.css',
+                        content: `/* Theme Variables */
+:root {
+  --primary-color: #3b82f6;
+  --secondary-color: #10b981;
+  --background-light: #ffffff;
+  --background-dark: #1f2937;
+  --text-light: #374151;
+  --text-dark: #f3f4f6;
+}
+
+/* Dark Mode Styles */
+.dark {
+  background-color: var(--background-dark);
+  color: var(--text-dark);
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Components */
+.button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.button-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.button-secondary {
+  background-color: var(--secondary-color);
+  color: white;
+}`,
+                        parentId: '9'
+                    }
+                ]
+            },
+            {
+                id: '11',
+                name: 'config',
+                parentId: '1',
+                children: [
+                    {
+                        id: '12',
+                        name: 'settings.json',
+                        content: `{
+  "editor": {
+    "theme": "dark",
+    "fontSize": 14,
+    "fontFamily": "Monaco, 'Courier New', monospace",
+    "tabSize": 2,
+    "insertSpaces": true,
+    "wordWrap": "on",
+    "autoSave": true,
+    "formatOnSave": true
+  },
+  "analysis": {
+    "autoAnalyze": true,
+    "suggestionsEnabled": true,
+    "metrics": {
+      "readability": true,
+      "complexity": true,
+      "performance": true,
+      "security": true
+    }
+  },
+  "features": {
+    "aiAssistant": true,
+    "autoComplete": true,
+    "livePreview": true,
+    "debugger": false
+  }
+}`,
+                        parentId: '11'
+                    }
+                ]
+            },
+            {
+                id: '13',
+                name: 'UI',
+                parentId: '1',
+                children: [
+                    {
+                        id: '14',
+                        name: 'Button.jsx',
+                        content: `import React from 'react';
+import PropTypes from 'prop-types';
+import './Button.css';
+
+const Button = ({ 
+  children, 
+  variant = 'primary',
+  size = 'medium',
+  disabled = false,
+  loading = false,
+  onClick,
+  className,
+  ...props 
+}) => {
+  const baseClasses = 'button';
+  const variantClasses = {
+    primary: 'button-primary',
+    secondary: 'button-secondary',
+    outline: 'button-outline',
+  };
+  const sizeClasses = {
+    small: 'button-sm',
+    medium: 'button-md', 
+    large: 'button-lg',
+  };
+
+  const classes = [
+    baseClasses,
+    variantClasses[variant],
+    sizeClasses[size],
+    disabled && 'button-disabled',
+    loading && 'button-loading',
+    className,
+  ].filter(Boolean).join(' ');
+
+  return (
+    <button
+      className={classes}
+      disabled={disabled || loading}
+      onClick={onClick}
+      {...props}
+    >
+      {loading ? (
+        <span className="button-spinner" />
+      ) : children}
+    </button>
+  );
+};
+
+Button.propTypes = {
+  children: PropTypes.node.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'outline']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  disabled: PropTypes.bool,
+  loading: PropTypes.bool,
+  onClick: PropTypes.func,
+  className: PropTypes.string,
+};
+
+export default Button;`,
+                        parentId: '13'
+                    }
+                ]
             }
         ]
     }
