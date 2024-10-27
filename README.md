@@ -1,6 +1,14 @@
 # 🚀 AI Code Assistant
 
+<div align="center">
+
 Modern code editor with AI-powered code analysis and real-time quality metrics, powered by GROQ API.
+
+<a href="https://web.89281112.xyz/project8/" target="_blank">
+  <img src="https://img.shields.io/badge/LIVE-DEMO-blue?style=for-the-badge&logo=vercel&labelColor=000000&color=3178C6" alt="Live Demo" style="height: 40px; margin: 20px 0;" />
+</a>
+
+</div>
 
 ## 🚀 Getting Started
 
