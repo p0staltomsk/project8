@@ -222,18 +222,17 @@ src/
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Fork the repository and create a pull request with your improvements.
 
-### Development Guidelines
 1. Fork the repository
 2. Create your feature branch
 3. Commit your changes
 4. Push to the branch
-5. Create a Pull Request
+5. Open a Pull Request
 
 ## 📝 License
 
-MIT License - see the [LICENSE](LICENSE) file for details
+MIT License
 
 ## 🙏 Acknowledgments
 - GROQ API for powerful AI capabilities
