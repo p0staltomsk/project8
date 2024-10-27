@@ -8,23 +8,20 @@ import { refactorCode } from '../../services/aiRefactor'
 import { analyzeCode, getCachedAnalysis } from '../../services/codeAnalysis'
 import type { CodeAnalysisResult, CodeSuggestion } from '@/types/codeAnalysis'
 import * as monaco from 'monaco-editor'
+import ReactDOM from 'react-dom/client'
+import SubscriptionPopup from '../Popup/subscription'
 
 /**
  * TODO: 
- * 1. Добавить автоформатирование кода при сохранении:
- *    - Использовать prettier для форматирования
- *    - Добавить настройки форматирования в конфиг проекта
- *    - Добавить кнопку для ручного форматирования (Alt+Shift+F)
+ * 1. TypeScript Issues Persistence:
+ *    - Сохранять TypeScript маркеры при анализе кода
+ *    - Синхронизировать маркеры с Monaco Editor
+ *    - Предотвратить исчезновение TypeScript issues при сохранении
  * 
- * 2. Улучшить обработку сохранения:
- *    - Добавить индикатор несохраненных изменений
- *    - Предупреждать при закрыт с несохраненными изменениями
- *    - Добавить автосохранение (опционально)
- * 
- * 3. Интегрироват с Grog API:
- *    - Реализовать отправку кода на анализ
- *    - Добавить системный промт для оценки качества
- *    - Обработать структурированный ответ от API
+ * 2. Analysis State Management:
+ *    - Улучшить механизм обновления состояния анализа
+ *    - Добавить проверку изменений кода в реальном времени
+ *    - Исправить проблему с пропаданием AI suggestions
  */
 
 interface EditorProps extends BaseProps {
@@ -43,13 +40,20 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
     metrics: {
         readability: 70,
         complexity: 70,
-        performance: 70
+        performance: 70,
+        security: 70  // Добавляем security
+    },
+    explanations: {
+        readability: { score: 70, strengths: [], improvements: [] },
+        complexity: { score: 70, strengths: [], improvements: [] },
+        performance: { score: 70, strengths: [], improvements: [] },
+        security: { score: 70, strengths: [], improvements: [] }
     },
     suggestions: []
   })
   const lastAnalyzedFileId = useRef<string | null>(null)
 
-  // Доб��вим новое состояние для кеширования TypeScript маркеров
+  // Добм новое состояние для кеширования TypeScript маркеров
   const [typescriptMarkers, setTypescriptMarkers] = useState<CodeSuggestion[]>([]);
 
   // Загружаем анализ ТОЛЬКО при первом открытии файла
@@ -74,67 +78,96 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
             metrics: {
                 readability: 70,
                 complexity: 70,
-                performance: 70
+                performance: 70,
+                security: 70  // Добавляем security
+            },
+            explanations: {
+                readability: { score: 70, strengths: [], improvements: [] },
+                complexity: { score: 70, strengths: [], improvements: [] },
+                performance: { score: 70, strengths: [], improvements: [] },
+                security: { score: 70, strengths: [], improvements: [] }
             },
             suggestions: []
         });
     }
-  }, [currentFile?.id]); // Зависимость от ID файла
+  }, [currentFile?.id]); // Завсимость от ID файла
 
-  const handleAIFix = async (suggestion: CodeSuggestion, lineContent: string) => {
-    if (!editorRef.current) return;
-    
-    try {
-      // Показываем индикатор загрузки
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'AI is analyzing the code...';
-      document.body.appendChild(notification);
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
 
-      // Запрашиваем исправление у API
-      const response = await axios.post('/api/fix-code', {
-        code: lineContent,
-        suggestion: suggestion.message,
-        severity: suggestion.severity
-      });
+    // Добавляем действие AI auto-fix
+    editor.addAction({
+        id: 'ai-auto-fix',
+        label: '🤖 AI auto-fix',
+        contextMenuGroupId: 'ai',
+        contextMenuOrder: 1.5,
+        run: () => {
+            const subscriptionPopup = document.createElement('div');
+            subscriptionPopup.id = 'subscription-popup-container';
+            document.body.appendChild(subscriptionPopup);
+            
+            const root = ReactDOM.createRoot(subscriptionPopup);
+            root.render(
+                <SubscriptionPopup 
+                    isOpen={true}
+                    onClose={() => {
+                        root.unmount();
+                        subscriptionPopup.remove();
+                    }}
+                    onSubscribe={(plan) => {
+                        console.log(`Selected plan: ${plan}`);
+                        root.unmount();
+                        subscriptionPopup.remove();
+                    }}
+                />
+            );
+        }
+    });
 
-      const fixedCode = response.data.fix;
+    // Настраиваем обработчик маркеров
+    monaco.editor.onDidChangeMarkers((uris) => {
+        const model = editor.getModel();
+        if (!model) return;
 
-      // Применяем исправление
-      const editor = editorRef.current;
-      const model = editor.getModel();
-      if (model) {
-        editor.executeEdits('ai-fix', [{
-          range: new monaco.Range(
-            suggestion.line,
-            1,
-            suggestion.line,
-            model.getLineMaxColumn(suggestion.line)
-          ),
-          text: fixedCode
-        }]);
-      }
+        if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
 
-      // Обновляем уведомление
-      notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Code fixed successfully!';
-      setTimeout(() => notification.remove(), 2000);
-    } catch (error) {
-      console.error('AI Fix Error:', error);
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Failed to fix code with AI';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 2000);
-    }
+        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+        const newMarkerSuggestions = markers
+            .filter(isRelevantMarker)
+            .map(markerToSuggestion);
+        
+        setTypescriptMarkers(newMarkerSuggestions);
+
+        const aiSuggestions = analysis.suggestions.filter(s => 
+            !s.message.includes('[TypeScript]') &&
+            !s.message.includes('[Type Error]') &&
+            !s.message.includes('[Type Mismatch]') &&
+            !s.message.includes('[Missing Module]') &&
+            !s.message.includes('[Syntax Error]') &&
+            !s.message.includes('[Declaration Error]')
+        );
+
+        const combinedSuggestions = [
+            ...newMarkerSuggestions,
+            ...aiSuggestions
+        ].sort((a, b) => {
+            if (a.line !== b.line) return a.line - b.line;
+            const severityOrder = { error: 0, warning: 1, info: 2 };
+            return severityOrder[a.severity] - severityOrder[b.severity];
+        });
+
+        setAnalysis(prev => ({
+            ...prev,
+            suggestions: combinedSuggestions
+        }));
+        
+        onAnalysisChange?.({
+            ...analysis,
+            suggestions: combinedSuggestions
+        });
+    });
   };
-
-  // Используем хук для подсветки кода с обработчиком исправлений
-  useCodeAnalysis({
-    editor: editorRef.current,
-    analysis,
-    onFixRequest: handleAIFix
-  })
 
   // Обновим функцию isRelevantMarker, чтобы захватывать все ошибки TypeScript
   const isRelevantMarker = (marker: editor.IMarker) => {
@@ -144,7 +177,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
            marker.severity === monaco.MarkerSeverity.Info;
   };
 
-  // Обновим функцию getMarkerTypePrefix для более точной категоризации ошибок
+  // Обновим функцию getMarkerTypePrefix для более точной категоизаи ошибок
   const getMarkerTypePrefix = (code: string | undefined): string => {
     const prefixes: Record<string, string> = {
         '7027': '[Unreachable Code]',
@@ -155,7 +188,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         '1005': '[Missing Declaration]',
         '2691': '[Import Error]',
         '1128': '[Declaration Error]',
-        '1005': '[Syntax Error]',
+        '2551': '[Syntax Error]',
         // Добавляем все встреченные коды ошибок
     };
     
@@ -191,203 +224,12 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
     }
   };
 
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor
-    monacoRef.current = monaco
-
-    // Добавляем AI дйстия в контекстное меню
-    editor.addAction({
-      id: 'ai-refactor',
-      label: '🤖 Refactor with AI',
-      contextMenuGroupId: 'ai',
-      contextMenuOrder: 1.5,
-      run: async (ed) => {
-        const selection = ed.getSelection();
-        if (selection) {
-          const selectedText = ed.getModel()?.getValueInRange(selection);
-          if (selectedText) {
-            await handleAIRefactor(selectedText, selection);
-          }
-        }
-      }
-    });
-
-    // Добавляем hover provider для подсказок
-    monaco.languages.registerHoverProvider('typescript', {
-      provideHover: (model, position) => {
-        const word = model.getWordAtPosition(position);
-        if (!word) return null;
-
-        const range = {
-          startLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endLineNumber: position.lineNumber,
-          endColumn: word.endColumn
-        };
-
-        return {
-          range,
-          contents: [
-            { value: '🤖 **AI Assistant Available**' },
-            { value: 'Select code and right-click to refactor with AI' }
-          ]
-        };
-      }
-    });
-
-    // Настраиваем поиск
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
-      const findController = editor.getContribution('editor.contrib.findController') as any
-      if (findController) {
-        const selection = editor.getSelection()
-        const searchText = selection ? editor.getModel()?.getValueInRange(selection) : ''
-        
-        // Показываем виджет поика и фокусируемся на нём
-        if (findController.start) {
-          findController.start({
-            searchString: searchText || '',
-            isRegex: false,
-            matchCase: false,
-            wholeWord: false,
-          })
-        }
-        
-        // Фокусируемся на поле поиска
-        setTimeout(() => {
-          const findInput = document.querySelector('.monaco-editor .find-widget .input') as HTMLInputElement
-          if (findInput) {
-            findInput.focus()
-          }
-        }, 50)
-      }
-    })
-
-    // В функции handleEditorDidMount добавим обработчик диагностики:
-    // Добавляем слушатель диагностических сообщений
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: false,
-        noSyntaxValidation: false,
-        diagnosticCodesToIgnore: [] // Можно добавить коды, которые нужно игнорировать
-    });
-
-    // Обновляем обработчик маркеров
-    monaco.editor.onDidChangeMarkers((uris) => {
-        const model = editor.getModel();
-        if (!model) return;
-
-        // Проверяем, что маркеры относятся к текущему файлу
-        if (!uris.some(uri => uri.toString() === model.uri.toString())) return;
-
-        const markers = monaco.editor.getModelMarkers({ resource: model.uri });
-        
-        // Получаем новые маркеры только для текущего файла
-        const newMarkerSuggestions = markers
-            .filter(isRelevantMarker)
-            .map(markerToSuggestion);
-        
-        // Обновляем кеш маркеров для текущего файла
-        setTypescriptMarkers(newMarkerSuggestions);
-
-        // Сохраняем существующие AI suggestions
-        const aiSuggestions = analysis.suggestions.filter(s => 
-            !s.message.includes('[TypeScript]') &&
-            !s.message.includes('[Type Error]') &&
-            !s.message.includes('[Type Mismatch]') &&
-            !s.message.includes('[Missing Module]') &&
-            !s.message.includes('[Syntax Error]') &&
-            !s.message.includes('[Declaration Error]')
-        );
-
-        // Объединяем списки
-        const combinedSuggestions = [
-            ...newMarkerSuggestions,
-            ...aiSuggestions
-        ].sort((a, b) => {
-            if (a.line !== b.line) return a.line - b.line;
-            const severityOrder = { error: 0, warning: 1, info: 2 };
-            return severityOrder[a.severity] - severityOrder[b.severity];
-        });
-
-        // Обновляем состояние
-        setAnalysis(prev => ({
-            ...prev,
-            suggestions: combinedSuggestions
-        }));
-        onAnalysisChange?.({
-            ...analysis,
-            suggestions: combinedSuggestions
-        });
-
-        // Отладочный вывод
-        console.group('Markers Update for file:', currentFile?.name);
-        console.log('New TypeScript markers:', newMarkerSuggestions);
-        console.log('Current AI suggestions:', aiSuggestions);
-        console.log('Combined result:', combinedSuggestions);
-        console.groupEnd();
-    });
-  }
-
-  const handleAIRefactor = async (code: string, range: IRange) => {
-    if (!editorRef.current) return;
-
-    try {
-      const overlay = document.createElement('div');
-      overlay.className = 'fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50';
-      overlay.innerHTML = `
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center gap-3">
-          <svg class="animate-spin h-5 w-5 text-blue-500" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="text-gray-700 dark:text-gray-200">AI is analyzing your code...</span>
-        </div>
-      `;
-      document.body.appendChild(overlay);
-
-      const response = await refactorCode({
-        code,
-        context: 'Improve code quality and readability'
-      });
-
-      // Применяем изменения к выделенному тексту
-      if (editorRef.current && range) {
-        editorRef.current.executeEdits('ai-refactor', [{
-          range: range,
-          text: response.result
-        }]);
-      }
-
-      // Показываем результаты анализа
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-3 rounded shadow-lg z-50';
-      notification.innerHTML = `
-        <div class="flex items-center gap-2">
-          <span>✨ Refactoring complete! Found ${response.suggestions.length} suggestions.</span>
-        </div>
-      `;
-      document.body.appendChild(notification);
-
-      // Удаляем оверлей и уведомление через некоторое время
-      overlay.remove();
-      setTimeout(() => notification.remove(), 3000);
-
-    } catch (error) {
-      console.error('AI Refactor Error:', error);
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-      notification.textContent = 'Failed to refactor code';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
-    }
-  };
-
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      setCode(value)
-      onChange?.(value)
-      // Убираем автоматический анализ при каждом изменении
+        setCode(value);
+        onChange?.(value);
     }
-  }
+  };
 
   // Обработка сохранения и получения новой оценки
   const handleSave = async (code: string) => {
@@ -402,10 +244,11 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         try {
             // Получаем новый анализ от API
             const newAnalysis = await analyzeCode(code, currentFile.id);
+            console.log('Received analysis:', newAnalysis); // Отладка
 
             // Используем кешированные TypeScript маркеры
             const combinedSuggestions = [
-                ...typescriptMarkers, // Используем кешированные маркеры
+                ...typescriptMarkers,
                 ...newAnalysis.suggestions.filter(suggestion => 
                     !typescriptMarkers.some(marker => 
                         marker.line === suggestion.line && 
@@ -418,11 +261,14 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
                 return severityOrder[a.severity] - severityOrder[b.severity];
             });
 
-            // Обновляем состояние
+            // ВАЖНО: Сохраняем все поля из newAnalysis
             const updatedAnalysis = {
-                ...newAnalysis,
+                metrics: newAnalysis.metrics,
+                explanations: newAnalysis.explanations, // Сохраняем explanations
                 suggestions: combinedSuggestions
             };
+
+            console.log('Updated analysis:', updatedAnalysis); // Отладка
 
             setAnalysis(updatedAnalysis);
             onAnalysisChange?.(updatedAnalysis);
@@ -441,14 +287,21 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
             console.groupEnd();
 
         } catch (analysisError) {
-            console.error('Analysis failed, using TypeScript markers only:', analysisError);
+            console.error('Analysis failed:', analysisError);
             
             // В случае ошибки анализа используем только TypeScript маркеры
-            const fallbackAnalysis = {
+            const fallbackAnalysis: CodeAnalysisResult = {
                 metrics: {
                     readability: 70,
                     complexity: 70,
-                    performance: 70
+                    performance: 70,
+                    security: 70  // Добавляем security
+                },
+                explanations: {
+                    readability: { score: 70, strengths: [], improvements: [] },
+                    complexity: { score: 70, strengths: [], improvements: [] },
+                    performance: { score: 70, strengths: [], improvements: [] },
+                    security: { score: 70, strengths: [], improvements: [] }
                 },
                 suggestions: typescriptMarkers
             };
@@ -469,7 +322,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
     }
   };
 
-  // Обработка Ctrl+S
+  // Обрботка Ctrl+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key === 'ы')) {

@@ -8,13 +8,14 @@ export const GROQ_CONFIG = {
 } as const
 
 // Системный промт для анализа кода
-export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a professional code analyzer with deep expertise in software development, design patterns, and best practices. Your task is to analyze the provided code and return a structured JSON response with metrics and suggestions.
+export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a professional code analyzer with deep expertise in software development, security, and best practices. Your task is to analyze the provided code and return a structured JSON response with metrics, explanations, and suggestions.
 
 Analysis Requirements:
-1. Evaluate code quality across three dimensions:
+1. Evaluate code quality across four dimensions:
    - Readability (documentation, naming, structure)
    - Complexity (cognitive load, nesting, logic branches)
    - Performance (algorithmic efficiency, memory usage, potential bottlenecks)
+   - Security (vulnerabilities, data validation, authentication)
 
 2. Score each metric from 0 to 100:
    - 90-100: Excellent
@@ -34,12 +35,35 @@ Rules:
 - Evaluate based on modern development standards
 - Provide practical, implementable suggestions
 
-Return strictly the following JSON structure without any additional text:
+Return strictly the following JSON structure:
 {
   "metrics": {
     "readability": number,
     "complexity": number,
-    "performance": number
+    "performance": number,
+    "security": number
+  },
+  "explanations": {
+    "readability": {
+      "score": number,
+      "strengths": string[],
+      "improvements": string[]
+    },
+    "complexity": {
+      "score": number,
+      "strengths": string[],
+      "improvements": string[]
+    },
+    "performance": {
+      "score": number,
+      "strengths": string[],
+      "improvements": string[]
+    },
+    "security": {
+      "score": number,
+      "strengths": string[],
+      "improvements": string[]
+    }
   },
   "suggestions": [
     {
@@ -73,3 +97,16 @@ export const getHeaders = () => ({
     'Authorization': `Bearer ${GROQ_API_KEY}`,
     'Content-Type': 'application/json',
 })
+
+/**
+ * TODO: 
+ * 1. API Optimization:
+ *    - Оптимизировать промпты для быстрого анализа
+ *    - Добавить кеширование на уровне API
+ *    - Улучшить обработку частых запросов
+ * 
+ * 2. Error Handling:
+ *    - Добавить retry механизм для failed запросов
+ *    - Улучшить обработку ошибок API
+ *    - Добавить fallback значения для метрик
+ */

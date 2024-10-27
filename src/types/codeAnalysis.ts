@@ -1,7 +1,21 @@
+export interface MetricExplanation {
+    score: number;
+    strengths: string[];
+    improvements: string[];
+}
+
 export interface CodeMetrics {
     readability: number
     complexity: number
     performance: number
+    security: number
+}
+
+export interface CodeExplanations {
+    readability: MetricExplanation
+    complexity: MetricExplanation
+    performance: MetricExplanation
+    security: MetricExplanation
 }
 
 export interface CodeSuggestion {
@@ -11,11 +25,8 @@ export interface CodeSuggestion {
 }
 
 export interface CodeAnalysisResult {
-    metrics: {
-        readability: number
-        complexity: number
-        performance: number
-    }
+    metrics: CodeMetrics
+    explanations: CodeExplanations
     suggestions: CodeSuggestion[]
 }
 

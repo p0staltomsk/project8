@@ -50,6 +50,14 @@ function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | n
 
         const parsedCache: AnalysisCache = JSON.parse(cached);
         
+        // Проверяем наличие всех необходимых метрик
+        if (!parsedCache.analysis?.metrics?.security || 
+            !parsedCache.analysis?.metrics?.readability ||
+            !parsedCache.analysis?.metrics?.complexity ||
+            !parsedCache.analysis?.metrics?.performance) {
+            return null;
+        }
+        
         if (parsedCache.content !== code) {
             return null;
         }
@@ -110,7 +118,30 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
                 metrics: {
                     readability: normalizeMetric(analysisData.metrics?.readability),
                     complexity: normalizeMetric(analysisData.metrics?.complexity),
-                    performance: normalizeMetric(analysisData.metrics?.performance)
+                    performance: normalizeMetric(analysisData.metrics?.performance),
+                    security: normalizeMetric(analysisData.metrics?.security)
+                },
+                explanations: {
+                    readability: {
+                        score: normalizeMetric(analysisData.explanations?.readability?.score),
+                        strengths: analysisData.explanations?.readability?.strengths || [],
+                        improvements: analysisData.explanations?.readability?.improvements || []
+                    },
+                    complexity: {
+                        score: normalizeMetric(analysisData.explanations?.complexity?.score),
+                        strengths: analysisData.explanations?.complexity?.strengths || [],
+                        improvements: analysisData.explanations?.complexity?.improvements || []
+                    },
+                    performance: {
+                        score: normalizeMetric(analysisData.explanations?.performance?.score),
+                        strengths: analysisData.explanations?.performance?.strengths || [],
+                        improvements: analysisData.explanations?.performance?.improvements || []
+                    },
+                    security: {
+                        score: normalizeMetric(analysisData.explanations?.security?.score),
+                        strengths: analysisData.explanations?.security?.strengths || [],
+                        improvements: analysisData.explanations?.security?.improvements || []
+                    }
                 },
                 suggestions: Array.isArray(analysisData.suggestions) 
                     ? analysisData.suggestions.map((suggestion: any) => ({
@@ -128,8 +159,21 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
             console.error('JSON Parse Error:', parseError);
             console.log('Raw content:', content);
             
+            const defaultExplanations = {
+                readability: { score: 70, strengths: [], improvements: [] },
+                complexity: { score: 70, strengths: [], improvements: [] },
+                performance: { score: 70, strengths: [], improvements: [] },
+                security: { score: 70, strengths: [], improvements: [] }
+            };
+
             return {
-                metrics: { readability: 70, complexity: 70, performance: 70 },
+                metrics: { 
+                    readability: 70, 
+                    complexity: 70, 
+                    performance: 70,
+                    security: 70
+                },
+                explanations: defaultExplanations,
                 suggestions: [{
                     line: 1,
                     message: 'Could not parse analysis results',
@@ -139,8 +183,21 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
         }
     } catch (error) {
         console.error('GROQ API Error:', error);
+        const defaultExplanations = {
+            readability: { score: 70, strengths: [], improvements: [] },
+            complexity: { score: 70, strengths: [], improvements: [] },
+            performance: { score: 70, strengths: [], improvements: [] },
+            security: { score: 70, strengths: [], improvements: [] }
+        };
+
         return {
-            metrics: { readability: 70, complexity: 70, performance: 70 },
+            metrics: { 
+                readability: 70, 
+                complexity: 70, 
+                performance: 70,
+                security: 70
+            },
+            explanations: defaultExplanations,
             suggestions: [{
                 line: 1,
                 message: 'Failed to analyze code',
@@ -151,3 +208,21 @@ async function analyzeCode(code: string, fileId: string = 'default'): Promise<Co
 }
 
 export { analyzeCode, getCachedAnalysis };
+
+/**
+ * TODO: 
+ * 1. Cache Management:
+ *    - Улучшить механизм кеширования анализа
+ *    - Добавить валидацию кешированных данных
+ *    - Исправить проблему с устареванием кеша
+ * 
+ * 2. Analysis Updates:
+ *    - Добавить инкрементальные обновления анализа
+ *    - Улучшить обработку ошибок API
+ *    - Добавить механизм отмены устаревших запросов
+ * 
+ * 3. Real-time Analysis:
+ *    - Реализовать анализ изменений в реальном времени
+ *    - Оптимизировать частоту запросов к API
+ *    - Добавить очередь анализа для больших изменений
+ */

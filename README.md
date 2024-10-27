@@ -6,10 +6,12 @@ Modern code editor with AI-powered code analysis and real-time quality metrics, 
 
 ### 🎯 Core Features
 - **Real-time Code Analysis**
-  - [x] Quality metrics (readability, complexity, performance)
-  - [x] Smart code suggestions
+  - [x] Enhanced quality metrics (readability, complexity, performance, security)
+  - [x] Detailed metric explanations with strengths and improvements
+  - [x] Smart code suggestions with TypeScript integration
   - [x] Line-specific improvement recommendations
-  - [x] AI-powered refactoring suggestions
+  - [x] AI-powered auto-fix functionality (subscription-based)
+  - [x] Interactive metric visualization with tooltips
 
 - **Advanced Editor**
   - [x] Monaco-based code editor with TypeScript support
@@ -17,49 +19,117 @@ Modern code editor with AI-powered code analysis and real-time quality metrics, 
   - [x] File tree navigation
   - [x] Smart search functionality (Ctrl+F)
   - [x] Auto-save with analysis caching
+  - [x] Context menu AI integration
 
 - **AI Integration**
   - [x] GROQ API integration for code analysis
   - [x] Context-aware suggestions
-  - [x] Intelligent code refactoring
-  - [x] Performance optimization hints
+  - [x] Intelligent code explanations
+  - [x] Performance and security insights
+  - [x] Subscription-based advanced features
 
 ### 🎨 UI/UX
 - Clean, modern interface with Tailwind CSS
 - Responsive layout design
-- Customizable editor theme
-- Intuitive file management
-- Real-time feedback system
+- Dark/Light theme support
+- Enhanced metric visualization with interactive tooltips
+- Animated success states and feedback
+- Premium subscription UI
+- Improved code analysis presentation
 
 ## 🚦 Project Status
 
 ### ✅ Completed
-- [x] GROQ API integration
-- [x] Code analysis system
-- [x] Custom dark theme
+- [x] GROQ API integration with enhanced prompts
+- [x] Advanced code analysis system with explanations
+- [x] Custom dark theme with improved contrast
 - [x] File system implementation
 - [x] Analysis caching system
-- [x] Basic code metrics
-- [x] Search functionality
-- [x] Error handling
+- [x] Enhanced code metrics with security focus
+- [x] Smart search functionality
+- [x] Error handling and fallbacks
+- [x] Subscription system UI
+- [x] Interactive metrics display
+- [x] Success state animations
+- [x] Component Testing Infrastructure
+  - [x] MetricBar component test coverage
+    - Basic rendering and ARIA attributes
+    - Color schemes for different metric types
+    - Interactivity and details display
+    - Edge cases handling
 
 ### 🏗️ In Progress
-- [ ] Advanced refactoring features
-  - [x] TypeScript error integration
-  - [x] Combined suggestions display
-  - [ ] Reliable state synchronization (current task)
-  - [ ] Proper error caching
-- [ ] Code formatting on save
-- [ ] Settings panel implementation
-- [ ] Project-wide analysis
-- [ ] Performance optimizations
+- [ ] Metrics Stability Issues
+  - [ ] Fix initial metrics flickering (70% default values)
+  - [ ] Prevent metrics jumping when switching files
+  - [ ] Maintain consistent TypeScript issues display
+  - [ ] Fix AI suggestions persistence
+  - [ ] Improve real-time code analysis updates
+  - [ ] Disable AI Suggestions button when no analysis available
+  - [ ] Add "Save document to get Suggestions" tooltip
+
+- [ ] Analysis System Improvements
+  - [ ] Implement proper state management for metrics
+  - [ ] Fix TypeScript markers synchronization
+  - [ ] Add real-time AI suggestions updates
+  - [ ] Improve caching mechanism
+  - [ ] Add analysis state persistence
+
+- [ ] UX Improvements
+  - [ ] Add loading states for metrics
+  - [ ] Smooth transitions for metric changes
+  - [ ] Better error handling and feedback
+  - [ ] Improve analysis update indicators
 
 ### 📋 Planned
 - [ ] Prettier integration
 - [ ] Git integration
-- [ ] Team collaboration features
-- [ ] Custom analysis rules
+- [ ] Custom analysis rules editor
+- [ ] Team dashboard
 - [ ] Export/Import functionality
+- [ ] Code review automation
+- [ ] Performance profiling tools
+- [ ] Custom plugin system
+- [ ] Testing Infrastructure
+  - [ ] Unit Tests
+    - [ ] AIAssistant component tests
+    - [ ] Code analysis service tests
+    - [ ] File system service tests
+    - [ ] GROQ API integration tests
+  - [ ] Integration Tests
+    - [ ] Editor-AIAssistant interaction
+    - [ ] File system-Editor integration
+    - [ ] Analysis pipeline tests
+  - [ ] E2E Tests
+    - [ ] Complete user workflows
+    - [ ] Performance testing
+    - [ ] Error handling scenarios
+  - [ ] Test Coverage Goals
+    - [ ] Core components: 90%+
+    - [ ] Services: 85%+
+    - [ ] Utils: 80%+
+
+## 🎯 Next Steps Priority
+
+1. Testing Infrastructure Enhancement
+   - Complete AIAssistant component tests
+   - Add tests for code analysis services
+   - Implement integration tests for core workflows
+
+2. Metrics Stability Issues
+   - Fix metrics initialization (70% default values)
+   - Implement proper state management
+   - Add loading states and transitions
+
+3. Analysis System Improvements
+   - Refactor analysis pipeline
+   - Implement proper caching
+   - Add real-time updates
+
+4. Documentation
+   - Add testing documentation
+   - Update component API documentation
+   - Create contribution guidelines for tests
 
 ## 🛠️ Tech Stack
 - React 18
@@ -68,42 +138,27 @@ Modern code editor with AI-powered code analysis and real-time quality metrics, 
 - Tailwind CSS
 - GROQ API
 - Vite
-
-## 🚀 Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Add your GROQ API key to .env
-echo "VITE_GROQ_API_KEY=your_key_here" > .env
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-```
+- Jest
+- Testing Library
+- MSW (Mock Service Worker)
 
 ## 📁 Project Structure
 ```
 src/
 ├── components/
 │   ├── Editor/
-│   │   ├── Editor.tsx
-│   │   ├── MonacoConfig.ts
-│   │   └── useCodeAnalysis.ts
+│   ├── AIAssistant/
+│   │   ├── AIAssistant.tsx
+│   │   ├── MetricBar.tsx
+│   │   ├── MetricBar.test.tsx      # Component test coverage
+│   │   └── AIAssistant.test.tsx    # TODO: Implement tests
 │   ├── Layout/
 │   └── Sidebar/
-├── services/
-│   ├── aiRefactor.ts
-│   ├── codeAnalysis.ts
-│   └── fileSystem.ts
-├── config/
-│   └── groq.ts
-├── types/
-└── styles/
-```
+├── tests/
+│   ├── setup/
+│   ├── mocks/
+│   └── utils/
+// ... (остальная структура)
 
 ## 🤝 Contributing
 
@@ -128,3 +183,38 @@ MIT License - see the [LICENSE](LICENSE) file for details
 ---
 
 <p align="center">Made with ❤️ by developers, for developers</p>
+
+## 🚀 Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Add your GROQ API key to .env
+echo "VITE_GROQ_API_KEY=your_key_here" > .env
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Prerequisites
+- Node.js 16+
+- npm or yarn
+- GROQ API key
+
+### Development Setup
+1. Clone the repository
+2. Install dependencies
+3. Set up your environment variables
+4. Start the development server
+
+For detailed setup instructions, see our [Development Guide](DEVELOPMENT.md).
