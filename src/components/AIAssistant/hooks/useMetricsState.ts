@@ -1,22 +1,16 @@
 // Управление состоянием метрик
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CodeMetrics } from '@/types/codeAnalysis';
-import { useAnalysisStore } from '@/store/analysisStore';
 
-export function useMetricsState(initialMetrics: CodeMetrics | undefined) {
-    const { metrics, isLoading, setMetrics, setLoading } = useAnalysisStore();
+export function useMetricsState(initialMetrics: CodeMetrics) {
+    const [metrics, setMetrics] = useState(initialMetrics);
+    // Используем isLoading в возвращаемом объекте
+    const [isLoading] = useState(false);
 
     useEffect(() => {
-        if (initialMetrics) {
-            const hasRealValues = Object.values(initialMetrics).some(value => value > 0);
-            
-            if (hasRealValues) {
-                setLoading(false);
-                setMetrics(initialMetrics);
-            }
-        }
-    }, [initialMetrics, setMetrics, setLoading]);
+        setMetrics(initialMetrics);
+    }, [initialMetrics]);
 
     return {
         metricsState: {

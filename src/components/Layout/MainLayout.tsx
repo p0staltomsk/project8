@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BaseProps } from '@/types'
 import Sidebar from '@/components/Sidebar/Sidebar'
 import AIAssistant from '@/components/AIAssistant/AIAssistant'
@@ -6,8 +6,8 @@ import Toolbar from '@/components/Toolbar/Toolbar'
 import CodeEditor from '@/components/Editor/Editor'
 import SettingsPanel from '@/components/Settings/SettingsPanel'
 import { ChevronLeft } from 'lucide-react'
-import { analyzeCode, getCachedAnalysis } from '@/services/codeAnalysis'
-import type { CodeAnalysisResult } from '@/types/codeAnalysis'  // Добавляем импорт типа
+import { analyzeCode } from '@/services/codeAnalysis'
+import type { CodeAnalysisResult } from '@/types/codeAnalysis'
 
 interface MainLayoutProps extends BaseProps {
     isSidebarOpen: boolean
@@ -52,76 +52,139 @@ export default function MainLayout({
 
     const [modifiedFiles, setModifiedFiles] = React.useState<Set<string>>(new Set())
 
-    // Используем единое состояние для анализа с корректными начальными значениями
+    // Изменяем логику инициализации
     const [currentAnalysis, setCurrentAnalysis] = useState<CodeAnalysisResult>(() => {
-        const savedAnalysis = localStorage.getItem(`analysis_${currentFile?.id}`);
-        return savedAnalysis ? JSON.parse(savedAnalysis) : {
-            metrics: {
-                readability: 100,
-                complexity: 100,
-                performance: 100,
-                security: 100
-            },
+        return {
+            metrics: { readability: 0, complexity: 0, performance: 0, security: 0 },
             explanations: {
-                readability: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
-                complexity: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
-                performance: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] },
-                security: { score: 100, strengths: ["Initial code analysis pending"], improvements: [] }
+                readability: { score: 0, strengths: [], improvements: [] },
+                complexity: { score: 0, strengths: [], improvements: [] },
+                performance: { score: 0, strengths: [], improvements: [] },
+                security: { score: 0, strengths: [], improvements: [] }
             },
             suggestions: [],
-            isInitialState: true // Добавляем флаг для отслеживания начального состояния
+            isInitialState: true
         };
     });
 
-    // Обработчик изменения анализа
-    const handleAnalysisChange = (analysis: CodeAnalysisResult) => {
-        console.log('Analysis updated:', analysis);
-        setCurrentAnalysis(analysis);
+    // Добавляем эффект для сброса анализа при смене файла
+    useEffect(() => {
+        setCurrentAnalysis({
+            metrics: { readability: 0, complexity: 0, performance: 0, security: 0 },
+            explanations: {
+                readability: { score: 0, strengths: [], improvements: [] },
+                complexity: { score: 0, strengths: [], improvements: [] },
+                performance: { score: 0, strengths: [], improvements: [] },
+                security: { score: 0, strengths: [], improvements: [] }
+            },
+            suggestions: [], // TypeScript ошибки добавятся автоматически через Editor
+            isInitialState: true
+        });
+    }, [currentFile?.id]); // Зависимость от ID файла
+
+    // Обновляем handleAnalysisChange
+    const handleAnalysisChange = React.useCallback((analysis: CodeAnalysisResult) => {
+        // Если это TypeScript ошибки, добавляем их к текущему состоянию
+        if (analysis.isInitialState) {
+            setCurrentAnalysis(prev => ({
+                ...prev,
+                suggestions: analysis.suggestions.filter(s => 
+                    s.message.includes('[TypeScript]') || 
+                    s.message.includes('[Type Error]') ||
+                    s.message.includes('[Type Mismatch]') ||
+                    s.message.includes('[Missing Property]') ||
+                    s.message.includes('[Unreachable Code]') ||
+                    s.message.includes('[Missing Module]') ||
+                    s.message.includes('[Missing Declaration]') ||
+                    s.message.includes('[Import Error]') ||
+                    s.message.includes('[Declaration Error]') ||
+                    s.message.includes('[Syntax Error]')
+                )
+            }));
+            return;
+        }
+
+        // Для результатов анализа - сохраняем TypeScript ошибки
+        const currentTypeScriptErrors = currentAnalysis.suggestions.filter(s => 
+            s.message.includes('[TypeScript]') || 
+            s.message.includes('[Type Error]') ||
+            s.message.includes('[Type Mismatch]') ||
+            s.message.includes('[Missing Property]') ||
+            s.message.includes('[Unreachable Code]') ||
+            s.message.includes('[Missing Module]') ||
+            s.message.includes('[Missing Declaration]') ||
+            s.message.includes('[Import Error]') ||
+            s.message.includes('[Declaration Error]') ||
+            s.message.includes('[Syntax Error]')
+        );
+
+        const updatedAnalysis = {
+            ...analysis,
+            suggestions: [
+                ...currentTypeScriptErrors,
+                ...analysis.suggestions.filter(s => !s.message.includes('[TypeScript]'))
+            ]
+        };
+
+        if (!analysis.isInitialState && 
+            JSON.stringify(updatedAnalysis) !== JSON.stringify(currentAnalysis)) {
+            console.log('Analysis updated:', updatedAnalysis);
+        }
+
+        setCurrentAnalysis(updatedAnalysis);
         
-        // Сохраняем в localStorage
-        if (currentFile) {
-            localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(analysis));
+        if (currentFile && !analysis.isInitialState) {
+            localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(updatedAnalysis));
         }
-    };
+    }, [currentFile, currentAnalysis]);
 
-    // Обновляем эффект для правильной инициализации анализа
-    React.useEffect(() => {
-        async function initializeAnalysis() {
-            if (!currentFile) return;
+    // Анализ только по Ctrl+S
+    const handleSave = React.useCallback(async (code: string) => {
+        if (!currentFile) return;
+        
+        try {
+            // Сначала анализ
+            const analysis = await analyzeCode(code, currentFile.id);
+            
+            // Сохраняем текущие TypeScript ошибки
+            const currentTypeScriptErrors = currentAnalysis.suggestions.filter(s => 
+                s.message.includes('[TypeScript]') || 
+                s.message.includes('[Type Error]') ||
+                s.message.includes('[Type Mismatch]') ||
+                s.message.includes('[Missing Property]') ||
+                s.message.includes('[Unreachable Code]') ||
+                s.message.includes('[Missing Module]') ||
+                s.message.includes('[Missing Declaration]') ||
+                s.message.includes('[Import Error]') ||
+                s.message.includes('[Declaration Error]') ||
+                s.message.includes('[Syntax Error]')
+            );
+            
+            // Объединяем TypeScript ошибки с результатами анализа
+            const updatedAnalysis = {
+                ...analysis,
+                suggestions: [
+                    ...currentTypeScriptErrors, // Сначала TypeScript ошибки
+                    ...analysis.suggestions.filter(s => !s.message.includes('[TypeScript]')) // Потом остальные
+                ],
+                isInitialState: false
+            };
+            
+            setCurrentAnalysis(updatedAnalysis);
+            
+            // Потом сохраняем файл
+            setCurrentFile(prev => prev ? { ...prev, content: code } : null);
+            setModifiedFiles(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(currentFile.id);
+                return newSet;
+            });
 
-            // Если это не начальное состояние и есть кэш - используем его
-            const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
-            if (cachedAnalysis) {
-                setCurrentAnalysis(cachedAnalysis);
-                return;
-            }
-
-            // Если это начальное состояние или нет кэша - делаем анализ
-            if (currentAnalysis.isInitialState || !cachedAnalysis) {
-                try {
-                    const analysis = await analyzeCode(currentFile.content, currentFile.id);
-                    if (analysis) {
-                        const updatedAnalysis = {
-                            ...analysis,
-                            isInitialState: false
-                        };
-                        setCurrentAnalysis(updatedAnalysis);
-                        localStorage.setItem(`analysis_${currentFile.id}`, JSON.stringify(updatedAnalysis));
-                    }
-                } catch (error) {
-                    console.error('Analysis failed:', error);
-                    // В случае ошибки сохраняем текущее состояние, но убираем флаг начального состояния
-                    setCurrentAnalysis(prev => ({
-                        ...prev,
-                        isInitialState: false,
-                        error: true
-                    }));
-                }
-            }
+            console.log('Analysis completed:', updatedAnalysis);
+        } catch (error) {
+            console.error('Analysis failed:', error);
         }
-
-        initializeAnalysis();
-    }, [currentFile?.id, currentFile?.content]);
+    }, [currentFile, currentAnalysis.suggestions]);
 
     const handleFileSelect = React.useCallback(async (file: CurrentFile) => {
         setCurrentFile(file);
@@ -132,17 +195,6 @@ export default function MainLayout({
         if (currentFile && code !== currentFile.content) {
             setModifiedFiles(prev => new Set(prev).add(currentFile.id))
         }
-    }, [currentFile]);
-
-    const handleSave = React.useCallback(async (code: string) => {
-        if (!currentFile) return;
-        
-        setCurrentFile(prev => prev ? { ...prev, content: code } : null);
-        setModifiedFiles(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(currentFile.id);
-            return newSet;
-        });
     }, [currentFile]);
 
     return (

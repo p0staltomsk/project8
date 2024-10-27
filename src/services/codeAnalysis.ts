@@ -37,46 +37,78 @@ function cacheAnalysis(fileId: string, code: string, analysis: CodeAnalysisResul
             timestamp: Date.now()
         };
         localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log('🟢 Cache write success:', {
+            key: cacheKey,
+            fileId,
+            contentLength: code.length,
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
-        console.error('Cache write error:', error);
+        console.error('🔴 Cache write error:', error);
     }
 }
 
 function getCachedAnalysis(fileId: string, code: string): CodeAnalysisResult | null {
     try {
         const cacheKey = `${CACHE_KEY_PREFIX}${fileId}`;
+        console.log('🔍 Checking cache for:', cacheKey);
+        
         const cached = localStorage.getItem(cacheKey);
-        if (!cached) return null;
+        if (!cached) {
+            console.log('⚪️ No cache found for:', cacheKey);
+            return null;
+        }
 
         const parsedCache: AnalysisCache = JSON.parse(cached);
+        console.log('📦 Found cached data:', {
+            fileId: parsedCache.fileId,
+            timestamp: new Date(parsedCache.timestamp).toISOString(),
+            contentLength: parsedCache.content.length
+        });
         
         // Проверяем наличие всех необходимых метрик
         if (!parsedCache.analysis?.metrics?.security || 
             !parsedCache.analysis?.metrics?.readability ||
             !parsedCache.analysis?.metrics?.complexity ||
             !parsedCache.analysis?.metrics?.performance) {
+            console.log('🟡 Cache invalid: missing metrics');
             return null;
         }
         
         if (parsedCache.content !== code) {
+            console.log('🟡 Cache invalid: content mismatch', {
+                cachedLength: parsedCache.content.length,
+                newLength: code.length
+            });
             return null;
         }
 
+        console.log('✅ Using valid cache:', {
+            metrics: parsedCache.analysis.metrics,
+            suggestionsCount: parsedCache.analysis.suggestions.length
+        });
         return parsedCache.analysis;
-    } catch {
+    } catch (error) {
+        console.error('🔴 Cache read error:', error);
         return null;
     }
 }
 
 async function analyzeCode(code: string, fileId: string = 'default'): Promise<CodeAnalysisResult> {
+    console.log('🔄 Starting code analysis for:', fileId);
+    
     // Проверяем кеш первым делом
     const cachedAnalysis = getCachedAnalysis(fileId, code);
     if (cachedAnalysis) {
+        console.log('💾 Using cached analysis for:', fileId);
         return cachedAnalysis;
     }
 
-    if (!GROQ_API_KEY || !GROQ_CONFIG) {
-        throw new Error('GROQ configuration is missing');
+    console.log('🚀 No cache found, performing new analysis');
+
+    if (!GROQ_API_KEY) {
+        console.error('🔴 GROQ API key is missing!');
+        throw new Error('GROQ API key is required for analysis');
     }
 
     try {

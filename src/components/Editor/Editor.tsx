@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react'
 import { BaseProps } from '@/types'
 import Editor, { Monaco, OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
-import { analyzeCode, getCachedAnalysis } from '../../services/codeAnalysis'
 import type { CodeAnalysisResult, CodeSuggestion } from '@/types/codeAnalysis'
 import * as monaco from 'monaco-editor'
 import ReactDOM from 'react-dom/client'
@@ -37,77 +36,36 @@ interface EditorProps extends BaseProps {
 export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, onAnalysisChange }: EditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
-  const isInitialMount = useRef<boolean>(true) // Добавляем ref для отслеживания первого монтирования
   
   const [code, setCode] = React.useState(currentFile?.content || "// Select a file to start editing")
+  
+  // Используем анализ в коде
   const [analysis, setAnalysis] = useState<CodeAnalysisResult>({
-    metrics: {
-        readability: 0,
-        complexity: 0,
-        performance: 0,
-        security: 0
-    },
-    explanations: {
-        readability: { score: 0, strengths: [], improvements: [] },
-        complexity: { score: 0, strengths: [], improvements: [] },
-        performance: { score: 0, strengths: [], improvements: [] },
-        security: { score: 0, strengths: [], improvements: [] }
-    },
-    suggestions: []
-  })
-  const lastAnalyzedFileId = useRef<string | null>(null)
+      metrics: {
+          readability: 0,
+          complexity: 0,
+          performance: 0,
+          security: 0
+      },
+      explanations: {
+          readability: { score: 0, strengths: [], improvements: [] },
+          complexity: { score: 0, strengths: [], improvements: [] },
+          performance: { score: 0, strengths: [], improvements: [] },
+          security: { score: 0, strengths: [], improvements: [] }
+      },
+      suggestions: [],
+      isInitialState: true
+  });
 
-  // Добм новое состояние для кеширования TypeScript маркеров
+  // Используем маркеры в коде
   const [typescriptMarkers, setTypescriptMarkers] = useState<CodeSuggestion[]>([]);
-
-  // Загружаем анализ ТОЛЬКО при первом открытии файла
-  useEffect(() => {
-    if (currentFile?.id && currentFile.id !== lastAnalyzedFileId.current) {
-      const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
-      if (cachedAnalysis) {
-        setAnalysis(cachedAnalysis);
-        lastAnalyzedFileId.current = currentFile.id;
-      }
-    }
-  }, [currentFile?.id]); // Зависимость только от ID файла
 
   // Обновляем эффект для смены файла
   useEffect(() => {
-    if (currentFile) {
-        setCode(currentFile.content);
-        setTypescriptMarkers([]); // Очищаем маркеры
-        isInitialMount.current = true;
-        
-        // Проверяем кеш перед сбросом
-        const cachedAnalysis = getCachedAnalysis(currentFile.id, currentFile.content);
-        
-        if (cachedAnalysis) {
-            // Если есть кешированный анализ - используем его
-            setAnalysis(cachedAnalysis);
-            onAnalysisChange?.(cachedAnalysis);
-        } else {
-            // Если нет кеша - сбрасываем в начальное состояние
-            const defaultAnalysis = {
-                metrics: {
-                    readability: 0,
-                    complexity: 0,
-                    performance: 0,
-                    security: 0
-                },
-                explanations: {
-                    readability: { score: 0, strengths: [], improvements: [] },
-                    complexity: { score: 0, strengths: [], improvements: [] },
-                    performance: { score: 0, strengths: [], improvements: [] },
-                    security: { score: 0, strengths: [], improvements: [] }
-                },
-                suggestions: [],
-                isInitialState: true
-            };
-
-            setAnalysis(defaultAnalysis);
-            onAnalysisChange?.(defaultAnalysis);
-        }
-    }
+      if (currentFile) {
+          setCode(currentFile.content);
+          setTypescriptMarkers([]); // Очищаем маркеры
+      }
   }, [currentFile?.id]);
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
@@ -128,17 +86,29 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         
         setTypescriptMarkers(newMarkerSuggestions);
 
-        // Обновляем анализ с новыми маркерами
+        // Обновляем только локальное состояние
         setAnalysis(prev => ({
             ...prev,
-            suggestions: newMarkerSuggestions,
-            isInitialState: false // Важно! Сбрасываем начальное состояние
+            suggestions: newMarkerSuggestions
         }));
         
+        // Обновляем родительское состояние только с TypeScript ошибками,
+        // сохраняя isInitialState
         onAnalysisChange?.({
-            ...analysis,
+            metrics: {
+                readability: 0,
+                complexity: 0,
+                performance: 0,
+                security: 0
+            },
+            explanations: {
+                readability: { score: 0, strengths: [], improvements: [] },
+                complexity: { score: 0, strengths: [], improvements: [] },
+                performance: { score: 0, strengths: [], improvements: [] },
+                security: { score: 0, strengths: [], improvements: [] }
+            },
             suggestions: newMarkerSuggestions,
-            isInitialState: false
+            isInitialState: true  // Важно! Сохраняем флаг
         });
     });
 
@@ -171,6 +141,16 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         }
     });
   };
+
+  // Добавляем использование analysis и typescriptMarkers
+  useEffect(() => {
+    if (analysis.suggestions.length > 0) {
+        console.debug('Current analysis suggestions:', analysis.suggestions);
+    }
+    if (typescriptMarkers.length > 0) {
+        console.debug('Current TypeScript markers:', typescriptMarkers);
+    }
+  }, [analysis.suggestions, typescriptMarkers]);
 
   // Обновим функцию isRelevantMarker, чтобы захватывать все ошибки TypeScript
   const isRelevantMarker = (marker: editor.IMarker) => {
@@ -234,7 +214,7 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
     }
   };
 
-  // Обработка сохранения и получения новой оценки
+  // Обработка сохранения
   const handleSave = async (code: string) => {
     if (!currentFile || !editorRef.current) return;
 
@@ -244,65 +224,12 @@ export default function CodeEditor({ isDarkMode, onSave, onChange, currentFile, 
         notification.textContent = 'Analyzing code...';
         document.body.appendChild(notification);
 
-        try {
-            const newAnalysis = await analyzeCode(code, currentFile.id);
-            
-            // Проверяем на идеальный код
-            const isPerfect = Object.values(newAnalysis.metrics).every(v => v >= 85);
-            
-            const combinedSuggestions = isPerfect 
-                ? [{ 
-                    line: 1, 
-                    message: '[Perfect Code] This code meets all quality standards', 
-                    severity: 'info' as const
-                }]
-                : typescriptMarkers;
+        // Вызываем колбэк сохранения и ждем результат
+        await onSave?.(code);
 
-            const updatedAnalysis = {
-                ...newAnalysis,
-                suggestions: combinedSuggestions,
-                isLoading: false,
-                isInitialState: false
-            };
-
-            setAnalysis(updatedAnalysis);
-            onAnalysisChange?.(updatedAnalysis);
-            
-            // Правильно очищаем индикатор изменений
-            const model = editorRef.current.getModel();
-            if (model) {
-                // Сохраняем текущую позицию курсора
-                const position = editorRef.current.getPosition();
-                
-                // Обновляем модель и сбрасываем dirty state
-                model.setValue(code);
-                model.setEOL(0); // 0 для LF, 1 для CRLF
-                
-                // Восстанавливаем позицию курсора
-                if (position) {
-                    editorRef.current.setPosition(position);
-                }
-                
-                // Сбрасываем историю отмены до текущего состояния
-                model.pushStackElement();
-            }
-
-            // Вызываем колбэк сохранения
-            onSave?.(code);
-
-            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
-            notification.textContent = 'File saved and analyzed!';
-            setTimeout(() => notification.remove(), 2000);
-
-        } catch (analysisError) {
-            console.error('Analysis error:', analysisError);
-            // Даже при ошибке анализа, мы все равно сохраняем файл
-            onSave?.(code);
-            
-            notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-            notification.textContent = 'Analysis failed, but file was saved';
-            setTimeout(() => notification.remove(), 3000);
-        }
+        notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+        notification.textContent = 'File saved and analyzed!';
+        setTimeout(() => notification.remove(), 2000);
 
     } catch (error) {
         console.error('Save error:', error);

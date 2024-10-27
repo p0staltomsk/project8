@@ -1,6 +1,6 @@
 // Управление состоянием suggestions
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CodeSuggestion } from '@/types/codeAnalysis';
 
 interface SuggestionsState {
@@ -29,39 +29,29 @@ export function useSuggestionsState(initialSuggestions?: CodeSuggestion[]) {
             editor: true,
             ai: true
         },
-        isInitialState: true // Всегда начинаем с true
+        isInitialState: !initialSuggestions?.length
     });
 
-    const setSuggestions = (suggestions: CodeSuggestion[]) => {
-        setSuggestionsState(prev => ({
-            ...prev,
-            items: suggestions,
-            // Меняем логику: isInitialState = true только если нет анализа вообще
-            isInitialState: suggestions.length === 0 && !suggestions.some(s => 
-                s.message.includes('[AI Analysis]') || 
-                s.message.includes('[Perfect Code]')
-            )
-        }));
-    };
+    // Обновляем состояние только при изменении входных данных
+    useEffect(() => {
+        if (initialSuggestions) {
+            setSuggestionsState(prev => ({
+                ...prev,
+                items: initialSuggestions,
+                isInitialState: false
+            }));
+        }
+    }, [initialSuggestions]);
 
-    const filterSuggestions = (suggestions: CodeSuggestion[]) => {
-        return suggestions.length > 0 
-            ? suggestions.filter((suggestion: CodeSuggestion) => {
-                const isTypeScriptIssue = suggestion.message.includes('[TypeScript]') || 
-                                        suggestion.message.includes('[Type Error]') ||
-                                        suggestion.message.includes('[Type Mismatch]') ||
-                                        suggestion.message.includes('[Missing Property]') ||
-                                        suggestion.message.includes('[Unreachable Code]');
+    const filterSuggestions = useCallback((suggestions: CodeSuggestion[]) => {
+        return suggestions.filter((suggestion: CodeSuggestion) => {
+            const isTypeScriptIssue = suggestion.message.includes('[TypeScript]') || 
+                                    suggestion.message.includes('[Type Error]');
+            return isTypeScriptIssue ? suggestionsState.filters.typescript : suggestionsState.filters.ai;
+        });
+    }, [suggestionsState.filters]);
 
-                if (isTypeScriptIssue) {
-                    return suggestionsState.filters.typescript;
-                }
-                return suggestionsState.filters.ai;
-            })
-            : [];
-    };
-
-    const toggleFilter = (filterType: 'typescript' | 'ai') => {
+    const toggleFilter = useCallback((filterType: 'typescript' | 'ai') => {
         setSuggestionsState(prev => ({
             ...prev,
             filters: {
@@ -69,11 +59,10 @@ export function useSuggestionsState(initialSuggestions?: CodeSuggestion[]) {
                 [filterType]: !prev.filters[filterType]
             }
         }));
-    };
+    }, []);
 
     return {
         suggestionsState,
-        setSuggestions,
         filterSuggestions,
         toggleFilter
     };
