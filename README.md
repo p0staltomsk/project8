@@ -43,8 +43,6 @@ npm run test:coverage
 3. Set up your environment variables
 4. Start the development server
 
-For detailed setup instructions, see our [Development Guide](DEVELOPMENT.md).
-
 ## ✨ Features
 
 ### 🎯 Core Features
