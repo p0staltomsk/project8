@@ -15,18 +15,19 @@ function getHeaders() {
 // Добавляем fallback значения для метрик
 const DEFAULT_ANALYSIS: CodeAnalysisResult = {
     metrics: {
-        readability: 75,
-        complexity: 70,
-        performance: 80,
-        security: 75
+        readability: 0, // Было 75
+        complexity: 0,  // Было 70
+        performance: 0, // Было 80
+        security: 0     // Было 75
     },
     explanations: {
-        readability: { score: 75, strengths: [], improvements: [] },
-        complexity: { score: 70, strengths: [], improvements: [] },
-        performance: { score: 80, strengths: [], improvements: [] },
-        security: { score: 75, strengths: [], improvements: [] }
+        readability: { score: 0, strengths: [], improvements: [] },
+        complexity: { score: 0, strengths: [], improvements: [] },
+        performance: { score: 0, strengths: [], improvements: [] },
+        security: { score: 0, strengths: [], improvements: [] }
     },
-    suggestions: []
+    suggestions: [],
+    isInitialState: true // Добавляем флаг начального состояния
 };
 
 /**
@@ -37,18 +38,22 @@ const DEFAULT_ANALYSIS: CodeAnalysisResult = {
  *    - Добавить очередь анализа для больших изменений
  */
 export async function analyzeCode(code: string, fileId: string = 'default'): Promise<CodeAnalysisResult> {
+    console.log('🔄 Starting analysis with content length:', code.length);
+    
     // Проверяем кеш
     const cachedAnalysis = getCachedAnalysis(fileId, code);
     if (cachedAnalysis) {
+        console.log('✅ Using cached analysis');
         return cachedAnalysis;
     }
 
     if (!GROQ_API_KEY) {
-        console.warn('GROQ API key is missing, using fallback values');
+        console.warn('⚠️ GROQ API key is missing');
         return DEFAULT_ANALYSIS;
     }
 
     try {
+        console.log('📡 Sending request to GROQ API...');
         const response = await axios.post(
             GROQ_CONFIG.apiUrl,
             {
@@ -67,49 +72,61 @@ export async function analyzeCode(code: string, fileId: string = 'default'): Pro
         );
 
         const content = response.data.choices?.[0]?.message?.content;
+        console.log('📥 Raw API response:', content);
         
         if (!content) {
-            console.warn('Empty response from GROQ API, using fallback values');
+            console.warn('⚠️ Empty response from GROQ API');
             return DEFAULT_ANALYSIS;
         }
 
         try {
-            // Извлекаем JSON из markdown ответа
-            const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
-            if (!jsonMatch) {
-                console.warn('No JSON found in response, using raw content');
-                // Пробуем распарсить весь контент
-                const analysisData = JSON.parse(content);
-                const validatedAnalysis = validateAnalysisData(analysisData);
+            // Пробуем напрямую парсить контент как JSON
+            const analysisData = JSON.parse(content);
+            console.log('📊 Parsed data:', analysisData);
+            
+            const validatedAnalysis = validateAnalysisData(analysisData);
+            if (validatedAnalysis !== DEFAULT_ANALYSIS) {
+                console.log('✅ Valid analysis:', validatedAnalysis);
                 cacheAnalysis(fileId, code, validatedAnalysis);
                 return validatedAnalysis;
             }
-
-            const jsonContent = jsonMatch[1];
-            const analysisData = JSON.parse(jsonContent);
-            const validatedAnalysis = validateAnalysisData(analysisData);
-            cacheAnalysis(fileId, code, validatedAnalysis);
-            return validatedAnalysis;
         } catch (parseError) {
-            console.error('Failed to parse GROQ API response:', parseError);
-            console.log('Raw content:', content); // Для отладки
+            console.error('❌ Parse error:', parseError);
+            console.log('📄 Content that failed to parse:', content);
             return DEFAULT_ANALYSIS;
         }
 
+        return DEFAULT_ANALYSIS;
     } catch (error) {
-        console.error('GROQ API Error:', error);
+        console.error('❌ API error:', error);
         return DEFAULT_ANALYSIS;
     }
 }
 
 function validateAnalysisData(data: any): CodeAnalysisResult {
-    // Базовые метрики с fallback значениями
+    console.log('🔍 Validating analysis data:', data);
+
+    // Проверяем наличие метрик
+    if (!data?.metrics || typeof data.metrics !== 'object') {
+        console.warn('⚠️ Invalid metrics data');
+        return DEFAULT_ANALYSIS;
+    }
+
+    // Нормализуем метрики
     const metrics = {
-        readability: Number(data?.metrics?.readability) || DEFAULT_ANALYSIS.metrics.readability,
-        complexity: Number(data?.metrics?.complexity) || DEFAULT_ANALYSIS.metrics.complexity,
-        performance: Number(data?.metrics?.performance) || DEFAULT_ANALYSIS.metrics.performance,
-        security: Number(data?.metrics?.security) || DEFAULT_ANALYSIS.metrics.security
+        readability: normalizeMetric(data.metrics.readability),
+        complexity: normalizeMetric(data.metrics.complexity),
+        performance: normalizeMetric(data.metrics.performance),
+        security: normalizeMetric(data.metrics.security)
     };
+
+    console.log('📊 Normalized metrics:', metrics);
+
+    // Проверяем валидность метрик
+    if (Object.values(metrics).some(m => m === 0)) {
+        console.warn('⚠️ Some metrics are invalid:', metrics);
+        return DEFAULT_ANALYSIS;
+    }
 
     // Проверяем и нормализуем объяснения
     const explanations = {
@@ -121,7 +138,15 @@ function validateAnalysisData(data: any): CodeAnalysisResult {
 
     const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
 
-    return { metrics, explanations, suggestions };
+    const result = { 
+        metrics, 
+        explanations, 
+        suggestions,
+        isInitialState: false
+    };
+
+    console.log('✅ Validation complete:', result);
+    return result;
 }
 
 function validateExplanation(exp: any, score: number) {
@@ -147,4 +172,9 @@ function validateExplanation(exp: any, score: number) {
         strengths: Array.isArray(exp.strengths) ? exp.strengths : [],
         improvements: Array.isArray(exp.improvements) ? exp.improvements : []
     };
+}
+
+function normalizeMetric(value: any): number {
+    const num = Number(value);
+    return !isNaN(num) && num > 0 && num <= 100 ? num : 0;
 }

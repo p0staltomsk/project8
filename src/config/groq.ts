@@ -10,71 +10,46 @@ export const GROQ_CONFIG = {
     timeout: 10000,
 } as const;
 
-// Обновляем системный промпт для более логичной оценки
-export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a strict code analyzer. Return ONLY a JSON object with this structure:
+// Упрощаем системный промпт для более надежного ответа
+export const CODE_ANALYSIS_SYSTEM_PROMPT = `You are a code analyzer. Return ONLY raw JSON without any markdown formatting or explanations. Example format:
 
 {
   "metrics": {
-    "readability": number (0-100),
-    "complexity": number (0-100),
-    "performance": number (0-100),
-    "security": number (0-100)
+    "readability": 85,
+    "complexity": 60,
+    "performance": 90,
+    "security": 90
   },
   "explanations": {
     "readability": {
-      "score": number,
-      "strengths": string[],
-      "improvements": string[]
+      "score": 85,
+      "strengths": ["Clear naming", "Good formatting"],
+      "improvements": []
     },
     "complexity": {
-      "score": number,
-      "strengths": string[],
-      "improvements": string[]
+      "score": 60,
+      "strengths": ["Simple logic"],
+      "improvements": ["Consider adding error handling"]
     },
     "performance": {
-      "score": number,
-      "strengths": string[],
-      "improvements": string[]
+      "score": 90,
+      "strengths": ["Efficient code"],
+      "improvements": []
     },
     "security": {
-      "score": number,
-      "strengths": string[],
-      "improvements": string[]
+      "score": 90,
+      "strengths": ["No vulnerabilities"],
+      "improvements": []
     }
   },
   "suggestions": [
     {
-      "line": number,
-      "message": string,
-      "severity": "error" | "warning" | "info"
+      "line": 1,
+      "message": "Add function documentation",
+      "severity": "info"
     }
   ]
-}
-
-Analysis Rules:
-1. ALWAYS provide at least 3-5 suggestions for any code
-2. For each potential issue:
-   - Add a suggestion with exact line number
-   - Use appropriate severity level
-   - Be specific in the message
-3. For each metric below 85:
-   - Add at least 2 specific improvements
-   - Add corresponding suggestions
-4. For good practices:
-   - Add positive suggestions with "info" severity
-   - List them in strengths
-5. Check for:
-   - Code style issues
-   - Potential bugs
-   - Performance bottlenecks
-   - Security risks
-   - Best practices violations
-
-Important:
-- Never return empty suggestions array
-- Always include line numbers
-- Be specific and actionable
-- Analyze entire code thoroughly`;
+}`;
 
 // Промт для проверки безопасности кода
 export const SECURITY_ANALYSIS_PROMPT = `You are a security expert analyzing code for potential vulnerabilities. Focus on:

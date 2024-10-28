@@ -126,34 +126,21 @@ export default function MainLayout({
         if (!currentFile) return;
         
         try {
+            console.log('💾 Starting save and analysis...');
+            
             // Сначала анализ
             const analysis = await analyzeCode(code, currentFile.id);
+            console.log('📊 Analysis result:', analysis);
             
-            // Сохраняем текущие TypeScript ошибки
-            const currentTypeScriptErrors = currentAnalysis.suggestions.filter(s => 
-                s.message.includes('[TypeScript]') || 
-                s.message.includes('[Type Error]') ||
-                s.message.includes('[Type Mismatch]') ||
-                s.message.includes('[Missing Property]') ||
-                s.message.includes('[Unreachable Code]') ||
-                s.message.includes('[Missing Module]') ||
-                s.message.includes('[Missing Declaration]') ||
-                s.message.includes('[Import Error]') ||
-                s.message.includes('[Declaration Error]') ||
-                s.message.includes('[Syntax Error]')
-            );
+            // Проверяем, что анализ не вернул дефолтные значения
+            if (analysis.metrics.readability === 0) {
+                console.warn('⚠️ Analysis returned default values');
+                // НЕ обновляем состояние если получили дефолтные значения
+                return;
+            }
 
-            // Объединяем TypeScript ошибки с результатами анализа
-            const updatedAnalysis = {
-                ...analysis,
-                suggestions: [
-                    ...currentTypeScriptErrors,  // Сохраняем TypeScript ошибки
-                    ...analysis.suggestions      // Добавляем AI suggestions
-                ],
-                isInitialState: false
-            };
-            
-            setCurrentAnalysis(updatedAnalysis);
+            // Обновляем состояние только если получили валидный анализ
+            setCurrentAnalysis(analysis);
             
             // Потом сохраняем файл
             setCurrentFile(prev => prev ? { ...prev, content: code } : null);
@@ -163,11 +150,12 @@ export default function MainLayout({
                 return newSet;
             });
 
-            console.log('Analysis completed:', updatedAnalysis);
+            console.log('✅ Save and analysis completed');
         } catch (error) {
-            console.error('Analysis failed:', error);
+            console.error('❌ Save/analysis failed:', error);
+            // При ошибке НЕ обновляем состояние
         }
-    }, [currentFile, currentAnalysis.suggestions]);
+    }, [currentFile]);
 
     const handleFileSelect = React.useCallback(async (file: CurrentFile) => {
         setCurrentFile(file);
